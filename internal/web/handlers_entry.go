@@ -36,7 +36,11 @@ func (a *App) GetEntryDialog(w http.ResponseWriter, r *http.Request) {
 		_ = sse.PatchElementTempl(view.Flash(a.entryRefusal(err)))
 		return
 	}
-	_ = sse.PatchElementTempl(view.EntryDialog(view.NewEntryForm(e, a.Now(), u.Location(), fromHistory(r))))
+	f := view.NewEntryForm(e, a.Now(), u.Location(), fromHistory(r))
+	// The name goes as a signal, never into the dialog's markup: see
+	// [view.EntryForm.Signals].
+	_ = sse.MarshalAndPatchSignals(f.Signals())
+	_ = sse.PatchElementTempl(view.EntryDialog(f))
 }
 
 // GetCloseEntryDialog takes the dialog away.
@@ -137,6 +141,8 @@ func (a *App) PostEntryRestore(w http.ResponseWriter, r *http.Request) {
 
 	sse := render.NewSSE(w, r)
 	if !a.patchAfterEntryChange(ctx, sse, u, r, in.HistorySignals) {
+		// Its own sentence says Saved, which is not what happened here.
+		_ = sse.PatchElementTempl(view.Flash("Brought back, but the page could not refresh. Reload to see it."))
 		return
 	}
 	msg := "Brought back."

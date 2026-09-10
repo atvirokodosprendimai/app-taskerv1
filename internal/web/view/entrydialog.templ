@@ -11,15 +11,15 @@ import (
 //
 // It is shaped and opened like [LogDialog] — a native <dialog> the server sends
 // and takes away, closed alike by Escape, Cancel and a press on the backdrop —
-// and it opens with the name as it stands. Delete asks for no confirmation: the
-// entry is deleted softly, and the message that replaces the dialog offers Undo.
+// and it opens with the name as it stands, which the handler sends beside it as a
+// signal (see [EntryForm.Signals]). Delete asks for no confirmation: the entry is
+// deleted softly, and the message that replaces the dialog offers Undo.
 templ EntryDialog(f EntryForm) {
 	<div id="dialog">
 		<dialog
 			class="dialog"
 			aria-labelledby="entry-title"
 			aria-describedby="entry-for"
-			data-signals={ templ.JSONString(f.Signals()) }
 			data-init="el.showModal()"
 			data-on:close={ closeEntryAction(f.EntryID) }
 			data-on:pointerdown={ "evt.target === el && " + closeEntryAction(f.EntryID) }

@@ -10,4 +10,5 @@
 ALTER TABLE time_entries ADD COLUMN deleted_at INTEGER;
 
 -- +goose Down
+-- Rolling back drops the mark itself, so every deleted entry comes back as a live one.
 ALTER TABLE time_entries DROP COLUMN deleted_at;

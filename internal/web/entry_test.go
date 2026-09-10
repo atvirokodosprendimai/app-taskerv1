@@ -47,6 +47,29 @@ func TestARunningTimersTaskNameIsPutRightFromTheDashboard(t *testing.T) {
 	}
 }
 
+// A task name is text anyone can type, and datastar compiles a data-signals
+// attribute as an expression — rewriting @name( even inside a quoted string — so a
+// name written there keeps the dialog from opening. It is sent as a signal instead.
+func TestTheEntryDialogSendsTheTaskNameAsASignalNotInItsMarkup(t *testing.T) {
+	h := newHarness(t)
+	ada, adaUser := h.register(t, "ada@example.com")
+	acme := h.addCompany(t, ada, adaUser, "Acme")
+	const name = "Call @Anna(invoices)"
+	h.start(t, ada, acme.ID, name)
+	e := h.running(t, adaUser)[0]
+
+	open := h.action(t, ada, http.MethodGet, fmt.Sprintf("/entries/%d/edit", e.ID), map[string]string{})
+	if !strings.Contains(open.body, "<dialog") {
+		t.Fatalf("the entry dialog did not open:\n%s", open.body)
+	}
+	if !strings.Contains(open.body, "datastar-patch-signals") || !strings.Contains(open.body, `{"entryTask":"`+name+`"}`) {
+		t.Errorf("the dialog's task name was not sent as a signal patch:\n%s", open.body)
+	}
+	if strings.Contains(open.body, "data-signals") {
+		t.Errorf("the entry dialog writes signals into its markup, where datastar compiles them:\n%s", open.body)
+	}
+}
+
 func TestDeletingATimerIsSoftAndUndoBringsItBack(t *testing.T) {
 	h := newHarness(t)
 	ada, adaUser := h.register(t, "ada@example.com")
@@ -105,11 +128,15 @@ func TestAnEntryPutRightInTheHistoryRendersItsResultsAgain(t *testing.T) {
 	if !strings.Contains(page, `id="`+view.EntryOpenerID(e.ID)+`"`) || !strings.Contains(page, `<div id="dialog"></div>`) {
 		t.Fatalf("the history lists the entry without its Edit button, or has no dialog slot:\n%s", page)
 	}
-	filter := view.HistorySignals{Mode: "day", Day: today}
+	// A year rather than the default month, so the period label shows which filter
+	// each response was rendered for.
+	year := time.Now().In(adaUser.Location()).Format(tracking.YearLayout)
+	filter := view.HistorySignals{Mode: "year", Year: year}
+	label := `period-label">` + year + `</p>`
 	path := func(action string) string { return fmt.Sprintf("/entries/%d/%s?from=history", e.ID, action) }
 
 	r := h.action(t, ada, http.MethodPost, path("task"), historyEntrySignals{view.TaskSignals{Task: "Phone call"}, filter})
-	for _, want := range []string{`id="history-results"`, " — Phone call<", `<div id="dialog"></div>`} {
+	for _, want := range []string{`id="history-results"`, label, " — Phone call<", `<div id="dialog"></div>`} {
 		if !strings.Contains(r.body, want) {
 			t.Errorf("saving in the history did not answer with %q:\n%s", want, r.body)
 		}
@@ -121,13 +148,13 @@ func TestAnEntryPutRightInTheHistoryRendersItsResultsAgain(t *testing.T) {
 	}
 
 	del := h.action(t, ada, http.MethodPost, path("delete"), historyEntrySignals{HistorySignals: filter})
-	for _, want := range []string{"No time recorded", "Deleted “Phone call” for Acme.", path("restore")} {
+	for _, want := range []string{label, "No time recorded", "Deleted “Phone call” for Acme.", path("restore")} {
 		if !strings.Contains(del.body, want) {
 			t.Errorf("deleting in the history did not answer with %q:\n%s", want, del.body)
 		}
 	}
 	back := h.action(t, ada, http.MethodPost, path("restore"), historyEntrySignals{HistorySignals: filter})
-	for _, want := range []string{" — Phone call<", "Brought back “Phone call” for Acme."} {
+	for _, want := range []string{label, " — Phone call<", "Brought back “Phone call” for Acme."} {
 		if !strings.Contains(back.body, want) {
 			t.Errorf("Undo in the history did not answer with %q:\n%s", want, back.body)
 		}

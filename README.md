@@ -105,7 +105,8 @@ the next page would be signed out again.
   every entry.
 - **Passwords** are 8 characters to 72 bytes, stored as bcrypt hashes.
 - **A deleted entry is kept, marked deleted,** and left out of every list, total and
-  export. Undo brings it back straight after the delete.
+  export. The confirmation's Undo brings it back exactly as it was: a timer that was
+  running when it was deleted comes back running, counted from when it started.
 - **Not built yet:** password reset, changing when an entry ran, and a list of
   deleted entries to restore from later.
 

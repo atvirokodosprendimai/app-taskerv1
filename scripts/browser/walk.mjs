@@ -319,6 +319,32 @@ async function desktop(browser) {
     .then(() => true, () => false);
   check(editFocus, 'focus returns to the Edit button');
 
+  // A name with @word( in it. Datastar compiles data-signals as an expression and
+  // rewrites @name( even inside a quoted string, so a stored name written into that
+  // attribute kept the dialog from opening at all.
+  const atName = 'Call @Anna(invoices)';
+  await invoicesTimer.locator('button', { hasText: 'Edit' }).click();
+  await page.waitForSelector('dialog.dialog[open]');
+  await page.fill('#entry-task', atName);
+  await page.press('#entry-task', 'Enter');
+  await page.waitForFunction(
+    (name) => !document.querySelector('#dialog dialog') && document.querySelector('#running-timers')?.textContent.includes(name),
+    atName,
+  );
+  await page.locator('#running-timers li.timer', { hasText: atName }).locator('button', { hasText: 'Edit' }).click();
+  const atOpened = await page
+    .waitForSelector('dialog.dialog[open]', { timeout: 3000 })
+    .then(() => true, () => false);
+  const atValue = atOpened ? await page.inputValue('#entry-task') : '(the dialog did not open)';
+  check(atOpened && atValue === atName, `a task name with @word( in it still opens the dialog, with that name (${atValue})`);
+  if (atOpened) {
+    await page.fill('#entry-task', 'Invoices and receipts');
+    await page.press('#entry-task', 'Enter');
+    await page.waitForFunction(
+      () => !document.querySelector('#dialog dialog') && document.querySelector('#running-timers')?.textContent.includes('Invoices and receipts'),
+    );
+  }
+
   // A timer started by mistake: deleted, brought back with Undo, deleted again.
   const mistake = () => page.locator('#running-timers li.timer', { hasText: 'Started by mistake' });
   await card(page, 'Acme').locator('input').fill('Started by mistake');

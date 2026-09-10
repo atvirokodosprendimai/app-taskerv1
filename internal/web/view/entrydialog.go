@@ -42,7 +42,11 @@ type TaskSignals struct {
 	Task string `json:"entryTask"`
 }
 
-// Signals is the dialog's starting state: the name as it stands.
+// Signals is the dialog's starting state: the name as it stands. The handler
+// sends it as a signal patch rather than writing it into the dialog's
+// data-signals, because datastar compiles that attribute as an expression and
+// rewrites @name( even inside a quoted string: a task called "Call @Anna(x)"
+// would keep the dialog from opening.
 func (f EntryForm) Signals() TaskSignals { return TaskSignals{Task: f.Task} }
 
 // UndoID is the DOM id of the Undo button a deletion's confirmation carries.
