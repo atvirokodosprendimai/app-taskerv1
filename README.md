@@ -57,6 +57,18 @@ Open <http://localhost:1222>. The port is `TASKER_PORT` in `.env`, and the same
 port is used inside the container, so the address in the log is the one to open.
 The database lives in the `tasker-data` volume and survives a rebuild.
 
+### From GitHub's container registry
+
+Pushing a release tag of the form `v0.1.2` publishes the image as
+`ghcr.io/atvirokodosprendimai/app-taskerv1:v0.1.2` and moves `latest` to it. A tag
+like `v1`, `v1.2` or `v1.2.3-rc1` publishes nothing, and no `v0` or `v0.1` alias is
+ever made.
+
+```sh
+git tag v0.1.2 && git push origin v0.1.2     # cut a release
+docker run -p 1222:1222 -v tasker-data:/data ghcr.io/atvirokodosprendimai/app-taskerv1:latest
+```
+
 ### From source
 
 Needs Go 1.26.

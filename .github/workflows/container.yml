@@ -1,0 +1,60 @@
+# Publishes the container image to GitHub's container registry for a release.
+#
+# Only a tag shaped exactly like v0.1.2 — vMAJOR.MINOR.PATCH — publishes, and it
+# publishes two image tags: that version and latest. No v0 or v0.1 aliases are
+# made. Any other tag, such as v1, v1.2 or v1.2.3-rc1, publishes nothing and
+# leaves latest where it is.
+name: Container image
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+"
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      # The trigger above is a glob, which cannot promise that nothing follows the
+      # patch number, so the tag is checked exactly before anything is built.
+      - name: Refuse anything but a vX.Y.Z tag
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          if [[ ! "$TAG" =~ ^v(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)$ ]]; then
+            echo "::error::$TAG is not a vX.Y.Z tag like v0.1.2, so nothing is published and latest stays where it is."
+            exit 1
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: docker/setup-buildx-action@37fe631027851001ddb9b187196cc803df7f5f0e # v4.3.0
+
+      - uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # The image is tagged with the git tag as it is, v0.1.2, and with latest,
+      # and with nothing else. latest=false stops the action adding latest by its
+      # own rules, so the one place latest comes from is the raw tag below.
+      - id: meta
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ghcr.io/${{ github.repository }}
+          flavor: latest=false
+          tags: |
+            type=ref,event=tag
+            type=raw,value=latest
+
+      - uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
