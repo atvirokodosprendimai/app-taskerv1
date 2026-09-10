@@ -451,6 +451,12 @@ select.input { padding-right: 8px; }
 .btn-inline { min-height: 28px; padding: 0 10px; margin-left: 8px; font-size: 13px; vertical-align: middle; }
 .btn-inline::after { inset: -8px 0; }
 
+/* A timer's task and its Edit button share a line when both fit. When they do
+   not, the button starts its own line flush with the text, rather than indented
+   by the margin it carries beside the text. */
+.timer-task { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 8px; }
+.timer-task .btn-inline { margin-left: 0; }
+
 /* Delete stands apart from Cancel and Save, at the other end of the row; on a
    phone it takes a row of its own below them. */
 .dialog-delete { margin-right: auto; }
