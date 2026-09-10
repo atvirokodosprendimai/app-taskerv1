@@ -1,0 +1,10 @@
+.git
+.env
+/data
+*.db
+*.db-shm
+*.db-wal
+/tasker
+scripts/browser/node_modules
+scripts/browser/shots
+docs

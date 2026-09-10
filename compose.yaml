@@ -1,0 +1,29 @@
+# Tasker, built from this checkout and served on one port.
+#
+#   cp .env.example .env        # optional — without it the port is 1222
+#   docker compose up -d --build
+#
+# TASKER_PORT is used inside the container and on the host alike, so the address
+# the server logs is the address to open.
+services:
+  tasker:
+    build: .
+    image: app-taskerv1:local
+    restart: unless-stopped
+    environment:
+      TASKER_ADDR: ":${TASKER_PORT:-1222}"
+      TASKER_DB: /data/tasker.db
+      # True only behind HTTPS. Over plain HTTP the browser never sends a Secure
+      # cookie back, so signing in appears to work and the next page is signed out.
+      TASKER_SECURE_COOKIES: "${TASKER_SECURE_COOKIES:-false}"
+    ports:
+      - "${TASKER_PORT:-1222}:${TASKER_PORT:-1222}"
+    expose:
+      - "${TASKER_PORT:-1222}"
+    volumes:
+      - tasker-data:/data
+    # On SIGTERM the server gives open requests up to 10 s to finish.
+    stop_grace_period: 15s
+
+volumes:
+  tasker-data:
