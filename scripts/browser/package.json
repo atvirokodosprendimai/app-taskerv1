@@ -1,0 +1,12 @@
+{
+  "name": "tasker-browser-walk",
+  "private": true,
+  "type": "module",
+  "description": "Drives the built tasker binary in a real browser: registration, parallel timers, live updates, a restart, history filters, sign-in.",
+  "scripts": {
+    "walk": "node walk.mjs"
+  },
+  "dependencies": {
+    "playwright": "1.63.0"
+  }
+}
