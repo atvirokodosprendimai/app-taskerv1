@@ -8,17 +8,21 @@ import (
 	"github.com/atvirokodosprendimai/app-taskerv1/internal/tracking"
 )
 
-// Report renders a period's entries as a plain-text report to send on: the
-// period's total on the first line, then one line per entry saying how long it
-// took and what it was.
+// Report renders a period's entries as a plain-text report to send on: a header
+// naming the period and its total — in hours and minutes, then in decimal hours
+// — and, after a blank line, one line per entry saying how long it took and what
+// it was.
 //
 // When each entry ran is left out on purpose — M: "dont add "since when to
-// when" just how long, what". Entries arrive newest first, as Repo.Entries
-// returns them, and are listed oldest first, the order work is read back in.
+// when" just how long, what" — while the period as a whole is named in the
+// header — M: "export needs "period from A to B" and "total hours" too ( in
+// header )". The period is named by its last day, not by the exclusive end it
+// is stored with. Entries arrive newest first, as Repo.Entries returns them,
+// and are listed oldest first, the order work is read back in.
 //
 // Each entry counts only its time inside the period, rounded to the minute, and
-// the total is the sum of those lines, so the lines always add up to the first
-// one. That can be a minute off the history page, which rounds the exact sum
+// both totals are the sum of those lines, so the lines always add up to the
+// header. That can be a minute off the history page, which rounds the exact sum
 // instead. An entry that rounds to no time at all is left out: it would add a
 // line and nothing to the total. With oneCompany the company name leaves every
 // line, since it would be the same on all of them.
@@ -38,7 +42,12 @@ func Report(p tracking.Period, now time.Time, entries []tracking.Entry, oneCompa
 	}
 
 	var b strings.Builder
+	b.WriteString("period from " + p.From.Format(tracking.DateLayout) + " to " + p.To.AddDate(0, 0, -1).Format(tracking.DateLayout) + "\n")
 	b.WriteString("total for period " + reportDuration(total) + "\n")
+	b.WriteString("total hours " + DecimalHours(time.Duration(total)*time.Minute) + "\n")
+	if len(lines) > 0 {
+		b.WriteString("\n")
+	}
 	for _, line := range lines {
 		b.WriteString(line + "\n")
 	}

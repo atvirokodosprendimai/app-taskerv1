@@ -420,7 +420,12 @@ async function desktop(browser) {
   check(exportHref?.includes('mode=year') && exportHref.includes('company='), `the Export link carries the period and company on screen (${exportHref})`);
   const [download] = await Promise.all([page.waitForEvent('download'), exportLink.click()]);
   const report = readFileSync(await download.path(), 'utf8').trimEnd().split('\n');
-  check(/^total for period \d+h\d{2}m$/.test(report[0]), `the report opens with the period's total (${report[0]})`);
+  const reportYear = vilniusToday.slice(0, 4);
+  check(report[0] === `period from ${reportYear}-01-01 to ${reportYear}-12-31`, `the report opens by naming the period (${report[0]})`);
+  check(
+    /^total for period \d+h\d{2}m$/.test(report[1]) && /^total hours \d+\.\d{2}$/.test(report[2]) && report[3] === '',
+    `the report's header gives the total in hours and minutes, then in hours, then a blank line (${JSON.stringify(report.slice(0, 4))})`,
+  );
   check(report.some(l => /^\d+h\d{2}m Phone call with the accountant$/.test(l)), `the report lists the logged call, renamed, by how long and what (${JSON.stringify(report)})`);
   check(!report.some(l => /\d{1,2}:\d{2}/.test(l)), 'the report says nothing about when each entry ran');
   check(download.suggestedFilename() === `tasker-${vilniusToday.slice(0, 4)}.txt`, `the report is named for its period (${download.suggestedFilename()})`);

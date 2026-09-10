@@ -12,7 +12,7 @@ import (
 	"github.com/atvirokodosprendimai/app-taskerv1/internal/web/view"
 )
 
-func TestTheExportIsThePeriodsTotalThenHowLongAndWhat(t *testing.T) {
+func TestTheExportNamesThePeriodAndItsTotalsThenHowLongAndWhat(t *testing.T) {
 	h := newHarness(t)
 	ada, adaUser := h.register(t, "ada@example.com")
 	bob, _ := h.register(t, "bob@example.com")
@@ -41,19 +41,20 @@ func TestTheExportIsThePeriodsTotalThenHowLongAndWhat(t *testing.T) {
 	if got, want := r.header.Get("Content-Disposition"), fmt.Sprintf("attachment; filename=%q", "tasker-"+yesterday+"_to_"+today+".txt"); got != want {
 		t.Errorf("Content-Disposition = %q, want %q", got, want)
 	}
-	if want := "total for period 1h25m\n1h00m Acme — Planning\n0h25m Beta — Phone call\n"; r.body != want {
+	header := "period from " + yesterday + " to " + today + "\n"
+	if want := header + "total for period 1h25m\ntotal hours 1.42\n\n1h00m Acme — Planning\n0h25m Beta — Phone call\n"; r.body != want {
 		t.Errorf("report =\n%s\nwant\n%s", r.body, want)
 	}
 
 	// Narrowed to one company, the lines name the work rather than the company.
 	company := "&company=" + strconv.FormatInt(acme.ID, 10)
-	if r := h.page(t, ada, "/history/export?"+query+company); r.body != "total for period 1h00m\n1h00m Planning\n" {
+	if r := h.page(t, ada, "/history/export?"+query+company); r.body != header+"total for period 1h00m\ntotal hours 1.00\n\n1h00m Planning\n" {
 		t.Errorf("Acme's report =\n%s", r.body)
 	}
 	// Ada's report above has her entries in it, so Bob's empty one is about whose
 	// time it is — even naming her company.
-	if r := h.page(t, bob, "/history/export?"+query+company); r.status != http.StatusOK || r.body != "total for period 0h00m\n" {
-		t.Errorf("Bob's report for Ada's company = %d\n%s\nwant only a zero total", r.status, r.body)
+	if r := h.page(t, bob, "/history/export?"+query+company); r.status != http.StatusOK || r.body != header+"total for period 0h00m\ntotal hours 0.00\n" {
+		t.Errorf("Bob's report for Ada's company = %d\n%s\nwant only a header with zero totals", r.status, r.body)
 	}
 	if r := h.page(t, ada, "/history/export?mode=range&from="+today+"&to="+yesterday); r.status != http.StatusBadRequest {
 		t.Errorf("a range that ends before it starts = %d, want 400", r.status)

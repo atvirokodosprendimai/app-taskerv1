@@ -27,9 +27,10 @@ month, year or any period.
   and narrow it to one company. The filter lives in the address, so a view can be
   bookmarked and survives a reload.
 - **Export a report.** The history's Export report button downloads the period on
-  screen as plain text: `total for period 12h40m` on the first line, then how long
-  each entry took and what it was, oldest first — without when each one ran. Each
-  line is rounded to the minute and the total is their sum.
+  screen as plain text: a header of `period from 2026-09-01 to 2026-09-30`,
+  `total for period 12h40m` and `total hours 12.67`, then how long each entry took
+  and what it was, oldest first — without when each one ran. Each line is rounded
+  to the minute and the totals are their sum.
 
 | Log time by hand | History |
 |---|---|

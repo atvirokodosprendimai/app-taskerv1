@@ -9,8 +9,9 @@ import (
 	"github.com/atvirokodosprendimai/app-taskerv1/internal/web/view"
 )
 
-// GetHistoryExport downloads a history period as a plain-text report: the
-// period's total first, then how long each entry took and what it was.
+// GetHistoryExport downloads a history period as a plain-text report: a header
+// naming the period and its totals, then how long each entry took and what it
+// was.
 //
 // It reads the same query as the history page, and the results render their
 // Export link from the filter on screen, so the file is the period and company
