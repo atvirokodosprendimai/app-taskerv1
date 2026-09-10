@@ -71,8 +71,11 @@ func (s *Service) Register(ctx context.Context, email, password, timezone string
 // Authenticate resolves an address and password to an account.
 //
 // Every failure returns the bare [ErrBadCredentials] value — not a wrapped one —
-// so no difference in wording can leak which path was taken, and every failure
-// pays one bcrypt comparison so no difference in timing can either. A genuine
+// so no difference in wording can leak which path was taken. Every failure also
+// pays one bcrypt comparison at the cost the stored hashes use, so bcrypt's cost
+// dominates the time of each path. The paths are not identical — a malformed
+// address skips the lookup, and a lookup that finds no row is not timed against
+// one that does — so do not read this as "no difference in timing". A genuine
 // store failure is returned as itself: an outage reported as a wrong password
 // sends whoever is on call hunting for the wrong problem.
 func (s *Service) Authenticate(ctx context.Context, email, password string) (User, error) {
