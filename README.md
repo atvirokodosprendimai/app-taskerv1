@@ -19,6 +19,9 @@ month, year or any period.
   started or stopped in another tab or on another device shows up by itself.
 - **Log time by hand.** For the call or meeting nobody timed: what it was, how long
   (`45m`, `1h30m`, `1:30`, `1.5`), which day, and optionally when it started.
+- **Put an entry right.** Every running timer and every entry in the history has an
+  Edit button: fix a task name typed wrong, or not typed at all, or delete the
+  entry. A delete only marks it, so the confirmation's Undo brings it back as it was.
 - **History.** Filter by day, month, year or a custom period, jump with presets
   (today, this week, this month, last month, this year) or step back and forward,
   and narrow it to one company. The filter lives in the address, so a view can be
@@ -84,7 +87,10 @@ the next page would be signed out again.
 - **The history lists the latest 500 entries** of a period. The totals always cover
   every entry.
 - **Passwords** are 8 characters to 72 bytes, stored as bcrypt hashes.
-- **Not built yet:** password reset, and editing or deleting an entry.
+- **A deleted entry is kept, marked deleted,** and left out of every list, total and
+  export. Undo brings it back straight after the delete.
+- **Not built yet:** password reset, changing when an entry ran, and a list of
+  deleted entries to restore from later.
 
 ## How it is built
 
@@ -121,8 +127,9 @@ through its real routes, sessions and migrations.
 
 A browser walk drives the built binary in Chromium — at desktop size and on a
 390 px phone — and checks what a person would notice: timers ticking, a second tab
-staying in step, a restart with dashboards open, the log-time dialog, the history
-filters, and what each action actually sends. It also takes the screenshots above.
+staying in step, a restart with dashboards open, the log-time dialog, editing and
+deleting an entry, the history filters, and what each action actually sends. It
+also takes the screenshots above.
 
 ```sh
 CGO_ENABLED=0 go build -o tasker ./cmd/tasker

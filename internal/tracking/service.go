@@ -13,6 +13,9 @@ type Store interface {
 	StartEntry(ctx context.Context, userID, companyID int64, task string, at time.Time) (Entry, error)
 	StopEntry(ctx context.Context, userID, entryID int64, at time.Time) error
 	LogEntry(ctx context.Context, userID, companyID int64, task string, start, end time.Time) (Entry, error)
+	RenameEntry(ctx context.Context, userID, entryID int64, task string) error
+	DeleteEntry(ctx context.Context, userID, entryID int64, at time.Time) error
+	RestoreEntry(ctx context.Context, userID, entryID int64) error
 }
 
 // Service is the write side of time tracking: the single writer of companies
@@ -81,6 +84,32 @@ func (s *Service) Log(ctx context.Context, userID, companyID int64, task string,
 		return Entry{}, ErrLoggedInFuture
 	}
 	return s.store.LogEntry(ctx, userID, companyID, task, start, end)
+}
+
+// Rename changes the task name of one of userID's entries, running or stopped:
+// the name typed wrong, or not typed at all, when its timer was started.
+// Whitespace collapses as it does on Start, and the name may be left empty.
+func (s *Service) Rename(ctx context.Context, userID, entryID int64, task string) error {
+	task = collapseSpace(task)
+	if utf8.RuneCountInString(task) > MaxTask {
+		return ErrTaskTooLong
+	}
+	return s.store.RenameEntry(ctx, userID, entryID, task)
+}
+
+// Delete takes one of userID's entries out of every list, total and export.
+//
+// It is a soft delete: the row is kept and marked, so an entry deleted in error
+// comes back exactly as it was with [Service.Restore]. A running timer is not
+// stopped by it: brought back, it carries on as though it had never been
+// deleted, the time in between included.
+func (s *Service) Delete(ctx context.Context, userID, entryID int64) error {
+	return s.store.DeleteEntry(ctx, userID, entryID, s.now())
+}
+
+// Restore brings back one of userID's deleted entries.
+func (s *Service) Restore(ctx context.Context, userID, entryID int64) error {
+	return s.store.RestoreEntry(ctx, userID, entryID)
 }
 
 // collapseSpace trims s and collapses every run of whitespace, newlines

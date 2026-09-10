@@ -6,8 +6,12 @@ import (
 	"github.com/atvirokodosprendimai/app-taskerv1/internal/tracking"
 )
 
+// historySignals keeps a history action to the filter's own signals, so a field
+// a dialog left behind on the page does not ride along with it.
+const historySignals = "{filterSignals: {include: /^hist/}}"
+
 // refreshHistory asks for new results with the current filter signals.
-const refreshHistory = "@get('/history/results')"
+const refreshHistory = "@get('/history/results', " + historySignals + ")"
 
 // HistoryPage is where the time went: a filter bar and its results.
 //
@@ -44,14 +48,14 @@ templ HistoryPage(h History) {
 						type="button"
 						class="btn btn-quiet"
 						aria-label="Previous period"
-						data-on:click="@get('/history/results?shift=-1')"
+						data-on:click={ "@get('/history/results?shift=-1', " + historySignals + ")" }
 						data-indicator="_histLoading"
 					>← Prev</button>
 					<button
 						type="button"
 						class="btn btn-quiet"
 						aria-label="Next period"
-						data-on:click="@get('/history/results?shift=1')"
+						data-on:click={ "@get('/history/results?shift=1', " + historySignals + ")" }
 						data-indicator="_histLoading"
 					>Next →</button>
 				</div>
@@ -89,6 +93,7 @@ templ HistoryPage(h History) {
 		<div class="results-wrap" data-class:loading="$_histLoading">
 			@HistoryResultsFragment(h.Results)
 		</div>
+		@NoDialog()
 	}
 }
 
@@ -106,7 +111,7 @@ templ presetButton(name, label string) {
 	<button
 		type="button"
 		class="btn btn-quiet"
-		data-on:click={ "@get('/history/results?preset=" + name + "')" }
+		data-on:click={ "@get('/history/results?preset=" + name + "', " + historySignals + ")" }
 		data-indicator="_histLoading"
 	>{ label }</button>
 }
@@ -183,6 +188,15 @@ templ HistoryResultsFragment(r HistoryResults) {
 												if e.Manual {
 													<span class="badge badge-quiet">manual</span>
 												}
+												<button
+													type="button"
+													id={ EntryOpenerID(e.ID) }
+													class="btn btn-quiet btn-small btn-inline"
+													aria-haspopup="dialog"
+													data-on:click={ openEntryAction(e.ID, true) }
+												>
+													Edit<span class="sr-only">{ entryEditLabel(e.Company, e.Task) }</span>
+												</button>
 											</span>
 											<span class="entry-duration mono">{ HoursMinutes(e.Duration) }</span>
 										</li>

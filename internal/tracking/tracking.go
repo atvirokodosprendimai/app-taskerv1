@@ -21,9 +21,9 @@ var (
 	ErrCompanyExists = errors.New("tracking: company already exists")
 	// ErrTaskTooLong reports a task name over [MaxTask] characters.
 	ErrTaskTooLong = errors.New("tracking: task name is too long")
-	// ErrNotFound reports a company or running timer that does not exist FOR
-	// THIS USER. Someone else's id and an id nobody has are the same answer, so
-	// ids cannot be probed for.
+	// ErrNotFound reports a company or entry that does not exist FOR THIS
+	// USER, or an entry that has been deleted. Someone else's id and an id
+	// nobody has are the same answer, so ids cannot be probed for.
 	ErrNotFound = errors.New("tracking: not found")
 	// ErrInvalidPeriod reports a history filter that names no period.
 	ErrInvalidPeriod = errors.New("tracking: invalid period")
@@ -50,8 +50,8 @@ type Entry struct {
 	ID          int64
 	CompanyID   int64
 	CompanyName string
-	// Task is the short description typed when the timer was started. It may
-	// be empty.
+	// Task is the short description typed when the timer was started, or put
+	// right since. It may be empty.
 	Task      string
 	StartedAt time.Time
 	// StoppedAt is the zero time while the timer is running.

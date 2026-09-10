@@ -71,6 +71,16 @@ func (a *App) Routes() http.Handler {
 		r.Get("/companies/{id}/log/close", a.GetCloseLogDialog)
 		r.Post("/companies/{id}/entries", a.PostLog)
 
+		// One entry, running or in the history: its task name put right, or the
+		// entry deleted — softly, so the confirmation can offer Undo. An action
+		// taken on the history page says so with ?from=history, and that page's
+		// results are rendered again for the filter it sends.
+		r.Get("/entries/{id}/edit", a.GetEntryDialog)
+		r.Get("/entries/{id}/edit/close", a.GetCloseEntryDialog)
+		r.Post("/entries/{id}/task", a.PostEntryTask)
+		r.Post("/entries/{id}/delete", a.PostEntryDelete)
+		r.Post("/entries/{id}/restore", a.PostEntryRestore)
+
 		r.Get("/history", a.GetHistory)
 		r.Get("/history/results", a.GetHistoryResults)
 		// The period on screen as a plain-text report, downloaded by a plain link.

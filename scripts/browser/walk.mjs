@@ -299,6 +299,51 @@ async function desktop(browser) {
   await page.waitForFunction(() => !document.querySelector('#dialog dialog'));
   check(true, 'Escape closes the dialog');
 
+  // A task name put right after its timer started.
+  const invoicesTimer = page.locator('#running-timers li.timer', { hasText: 'Invoices' });
+  await invoicesTimer.locator('button', { hasText: 'Edit' }).click();
+  await page.waitForSelector('dialog.dialog[open]');
+  check(await page.evaluate(() => document.activeElement?.id === 'entry-task'), 'the entry dialog puts the cursor in the task name');
+  const nameAsItStands = await page.inputValue('#entry-task');
+  check(nameAsItStands === 'Invoices', `the entry dialog opens with the name as it stands (${nameAsItStands})`);
+  await page.fill('#entry-task', 'Invoices and receipts');
+  await shot(page, 'desktop-edit-entry.png', 'light', false);
+  await page.press('#entry-task', 'Enter');
+  await page.waitForFunction(() => !document.querySelector('#dialog dialog'));
+  const renamed = signalsOf(sent.last('POST', /^\/entries\/\d+\/task$/));
+  check(JSON.stringify(renamed) === '{"entryTask":"Invoices and receipts"}', `saving a task name sends that field and nothing else (${JSON.stringify(renamed)})`);
+  await page.waitForFunction(() => document.querySelector('#running-timers')?.textContent.includes('Invoices and receipts'));
+  check(true, 'the running timer shows its new name without a reload');
+  const editFocus = await page
+    .waitForFunction(() => document.activeElement?.id?.startsWith('entry-open-'), null, { timeout: 3000 })
+    .then(() => true, () => false);
+  check(editFocus, 'focus returns to the Edit button');
+
+  // A timer started by mistake: deleted, brought back with Undo, deleted again.
+  const mistake = () => page.locator('#running-timers li.timer', { hasText: 'Started by mistake' });
+  await card(page, 'Acme').locator('input').fill('Started by mistake');
+  await card(page, 'Acme').locator('button.btn-start').click();
+  await waitForTimers(page, 2);
+  await mistake().locator('button', { hasText: 'Edit' }).click();
+  await page.waitForSelector('dialog.dialog[open]');
+  await page.click('dialog.dialog button:has-text("Delete entry")');
+  await waitForTimers(page, 1);
+  await page.waitForSelector('#flash button:has-text("Undo")');
+  check(JSON.stringify(signalsOf(sent.last('POST', /^\/entries\/\d+\/delete$/))) === '{}', 'deleting an entry sends no signals');
+  check((await page.textContent('#flash')).includes('Deleted “Started by mistake” for Acme'), 'the page says what was deleted');
+  const undoFocus = await page
+    .waitForFunction(() => document.activeElement?.id === 'undo', null, { timeout: 3000 })
+    .then(() => true, () => false);
+  check(undoFocus, 'focus moves to Undo once the entry has gone');
+  await shot(page, 'desktop-deleted.png', 'light', false);
+  await page.keyboard.press('Enter');
+  await page.waitForFunction(() => document.querySelector('#flash')?.textContent.includes('Brought back'));
+  check((await page.locator('#running-timers li.timer').count()) === 2, 'Undo, pressed from the keyboard, brings the deleted timer back');
+  await mistake().locator('button', { hasText: 'Edit' }).click();
+  await page.waitForSelector('dialog.dialog[open]');
+  await page.click('dialog.dialog button:has-text("Delete entry")');
+  await waitForTimers(page, 1);
+
   // History.
   await page.click('nav a:has-text("History")');
   await page.waitForURL(`${base}/history`);
@@ -334,7 +379,40 @@ async function desktop(browser) {
   check((await modeButton(page, 'Year').getAttribute('aria-pressed')) === 'true', 'the preset presses the Year button');
   const yearText = await results(page);
   check(yearText.includes('Phone call') && yearText.includes('manual'), 'the history lists the logged call, marked manual');
+  check(!yearText.includes('Started by mistake'), 'a deleted timer is not in the history');
   await shot(page, 'desktop-history.png');
+
+  // An entry put right in the history, which has no stream: its results are
+  // rendered again for the period on screen.
+  const callEntry = () => page.locator('#history-results li.entry', { hasText: 'Phone call' });
+  await callEntry().locator('button', { hasText: 'Edit' }).click();
+  await page.waitForSelector('dialog.dialog[open]');
+  await page.fill('#entry-task', 'Phone call with the accountant');
+  await page.click('dialog.dialog button:has-text("Save")');
+  await page.waitForFunction(() => !document.querySelector('#dialog dialog'));
+  await page.waitForFunction(() => document.querySelector('#history-results')?.textContent.includes('Phone call with the accountant'));
+  const savedInHistory = signalsOf(sent.last('POST', /^\/entries\/\d+\/task$/));
+  check(
+    savedInHistory?.entryTask === 'Phone call with the accountant' && savedInHistory.histMode === 'year' && !('newCompany' in savedInHistory),
+    `saving in the history sends the name and the filter on screen (${JSON.stringify(savedInHistory)})`,
+  );
+  await callEntry().locator('button', { hasText: 'Edit' }).click();
+  await page.waitForSelector('dialog.dialog[open]');
+  await page.click('dialog.dialog button:has-text("Delete entry")');
+  await page.waitForFunction(() => !document.querySelector('#history-results')?.textContent.includes('Phone call'));
+  check(true, 'deleting in the history takes the entry out of the results');
+  await page.click('#flash button:has-text("Undo")');
+  await page.waitForFunction(() => document.querySelector('#history-results')?.textContent.includes('Phone call with the accountant'));
+  check(true, 'Undo in the history puts the entry back in the results');
+  const resultsBefore = sent.last('GET', /^\/history\/results$/);
+  await page.click('button:has-text("This year")');
+  for (let i = 0; i < 50 && sent.last('GET', /^\/history\/results$/) === resultsBefore; i++) await sleep(100);
+  const resultsAfter = sent.last('GET', /^\/history\/results$/);
+  const filterAfter = signalsOf(resultsAfter);
+  check(
+    resultsAfter !== resultsBefore && filterAfter?.histMode === 'year' && !('entryTask' in filterAfter),
+    `the history's next request leaves the dialog's field behind (${JSON.stringify(filterAfter)})`,
+  );
 
   // The report of the period on screen: the total, then how long and what.
   const exportLink = page.locator('#history-results a', { hasText: 'Export report' });
@@ -343,7 +421,7 @@ async function desktop(browser) {
   const [download] = await Promise.all([page.waitForEvent('download'), exportLink.click()]);
   const report = readFileSync(await download.path(), 'utf8').trimEnd().split('\n');
   check(/^total for period \d+h\d{2}m$/.test(report[0]), `the report opens with the period's total (${report[0]})`);
-  check(report.some(l => /^\d+h\d{2}m Phone call$/.test(l)), `the report lists the logged call by how long and what (${JSON.stringify(report)})`);
+  check(report.some(l => /^\d+h\d{2}m Phone call with the accountant$/.test(l)), `the report lists the logged call, renamed, by how long and what (${JSON.stringify(report)})`);
   check(!report.some(l => /\d{1,2}:\d{2}/.test(l)), 'the report says nothing about when each entry ran');
   check(download.suggestedFilename() === `tasker-${vilniusToday.slice(0, 4)}.txt`, `the report is named for its period (${download.suggestedFilename()})`);
 
@@ -425,6 +503,26 @@ async function phone(browser) {
   await page.tap('dialog.dialog button:has-text("Cancel")');
   await page.waitForFunction(() => !document.querySelector('#dialog dialog'));
   check(true, 'Cancel closes the dialog');
+
+  // A task name put right with a thumb.
+  const phoneEdit = page.locator('#running-timers li.timer').first().locator('button', { hasText: 'Edit' });
+  const editBox = await phoneEdit.boundingBox();
+  const editHitAbove = await page.evaluate(
+    ([x, y]) => document.elementFromPoint(x, y)?.closest('button')?.id ?? '',
+    [editBox.x + editBox.width / 2, editBox.y - 6],
+  );
+  check(
+    editBox.height >= 44 || editHitAbove.startsWith('entry-open-'),
+    `the Edit button in a timer still takes a full-size tap (${Math.round(editBox.width)}×${Math.round(editBox.height)}, hit above: ${editHitAbove})`,
+  );
+  await phoneEdit.tap();
+  await page.waitForSelector('dialog.dialog[open]');
+  check(await noSideScroll(page), 'the entry dialog fits a 390 px screen');
+  await shot(page, 'phone-edit-entry.png', 'light', false);
+  await page.fill('#entry-task', 'Warehouse ledgers');
+  await page.tap('dialog.dialog button:has-text("Save")');
+  await page.waitForFunction(() => document.querySelector('#running-timers')?.textContent.includes('Warehouse ledgers'));
+  check(true, 'a task name changed on a phone shows in the running timer');
 
   await page.tap('nav a:has-text("History")');
   await page.waitForURL(`${base}/history`);

@@ -134,15 +134,16 @@ func (a *App) PostStop(w http.ResponseWriter, r *http.Request) {
 // patchDashboard sends the writer's own page its fresh state, rather than
 // leaving it to wait for its stream: a response and a stream event are two
 // separate round trips, and the person who pressed the button should not see
-// the gap between them.
-func (a *App) patchDashboard(ctx context.Context, sse *datastar.ServerSentEventGenerator, u auth.User) {
+// the gap between them. It reports whether the fresh state could be read.
+func (a *App) patchDashboard(ctx context.Context, sse *datastar.ServerSentEventGenerator, u auth.User) bool {
 	d, err := a.dashboard(ctx, u)
 	if err != nil {
 		a.Log.Error("reload dashboard", "err", err)
 		_ = sse.PatchElementTempl(view.Flash("Saved, but the page could not refresh. Reload to see the change."))
-		return
+		return false
 	}
 	_ = sse.PatchElementTempl(view.Flash(""))
 	_ = sse.PatchElementTempl(view.CompanyList(d.Companies))
 	_ = sse.PatchElementTempl(view.RunningTimers(d.Timers))
+	return true
 }

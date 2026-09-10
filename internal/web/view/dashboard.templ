@@ -92,6 +92,15 @@ templ RunningTimers(t Timers) {
 								} else {
 									{ e.Task }
 								}
+								<button
+									type="button"
+									id={ EntryOpenerID(e.ID) }
+									class="btn btn-quiet btn-small btn-inline"
+									aria-haspopup="dialog"
+									data-on:click={ openEntryAction(e.ID, false) }
+								>
+									Edit<span class="sr-only">{ entryEditLabel(e.CompanyName, e.Task) }</span>
+								</button>
 							</p>
 							<p class="timer-started">{ t.Started(e) }</p>
 						</div>

@@ -76,7 +76,7 @@ func (r *Repo) StartEntry(ctx context.Context, userID, companyID int64, task str
 }
 
 // StopEntry stops one of userID's running timers. A timer that is not the
-// user's, or is already stopped, is [ErrNotFound].
+// user's, is already stopped, or has been deleted is [ErrNotFound].
 //
 // The stop time is never earlier than the start: a clock that stepped
 // backwards between the two would otherwise violate the table's CHECK and turn
@@ -84,7 +84,7 @@ func (r *Repo) StartEntry(ctx context.Context, userID, companyID int64, task str
 func (r *Repo) StopEntry(ctx context.Context, userID, entryID int64, at time.Time) error {
 	res, err := r.write.ExecContext(ctx,
 		`UPDATE time_entries SET stopped_at = MAX(?, started_at)
-		 WHERE id = ? AND user_id = ? AND stopped_at IS NULL`,
+		 WHERE id = ? AND user_id = ? AND stopped_at IS NULL AND deleted_at IS NULL`,
 		at.Unix(), entryID, userID)
 	if err != nil {
 		return fmt.Errorf("tracking: stop entry: %w", err)
@@ -134,6 +134,53 @@ func (r *Repo) LogEntry(ctx context.Context, userID, companyID int64, task strin
 	}, nil
 }
 
+// RenameEntry sets the task name of one of userID's entries, running or not. An
+// entry that is not the user's, or has been deleted, is [ErrNotFound], and
+// nothing is written.
+func (r *Repo) RenameEntry(ctx context.Context, userID, entryID int64, task string) error {
+	return r.changeEntry(ctx, "rename entry",
+		`UPDATE time_entries SET task = ?
+		  WHERE id = ? AND user_id = ? AND deleted_at IS NULL`,
+		task, entryID, userID)
+}
+
+// DeleteEntry marks one of userID's entries deleted at at. The row is kept, so
+// [Repo.RestoreEntry] can bring it back, and every read leaves it out meanwhile.
+// An entry that is not the user's, or is already deleted, is [ErrNotFound].
+func (r *Repo) DeleteEntry(ctx context.Context, userID, entryID int64, at time.Time) error {
+	return r.changeEntry(ctx, "delete entry",
+		`UPDATE time_entries SET deleted_at = ?
+		  WHERE id = ? AND user_id = ? AND deleted_at IS NULL`,
+		at.Unix(), entryID, userID)
+}
+
+// RestoreEntry brings back one of userID's deleted entries. An entry that is not
+// the user's, or is not deleted, is [ErrNotFound].
+func (r *Repo) RestoreEntry(ctx context.Context, userID, entryID int64) error {
+	return r.changeEntry(ctx, "restore entry",
+		`UPDATE time_entries SET deleted_at = NULL
+		  WHERE id = ? AND user_id = ? AND deleted_at IS NOT NULL`,
+		entryID, userID)
+}
+
+// changeEntry runs an UPDATE of one entry and reports [ErrNotFound] when it
+// matched no row. SQLite counts every row the WHERE matched, even one whose new
+// value equals the old, so renaming an entry to the name it has is not a miss.
+func (r *Repo) changeEntry(ctx context.Context, what, query string, args ...any) error {
+	res, err := r.write.ExecContext(ctx, query, args...)
+	if err != nil {
+		return fmt.Errorf("tracking: %s: %w", what, err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("tracking: %s: %w", what, err)
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}
+
 // ---- read side --------------------------------------------------------------
 
 // Companies returns userID's companies by name, each with its count of running
@@ -142,7 +189,8 @@ func (r *Repo) Companies(ctx context.Context, userID int64) ([]Company, error) {
 	rows, err := r.read.QueryContext(ctx,
 		`SELECT c.id, c.name, c.created_at,
 		        (SELECT count(*) FROM time_entries e
-		          WHERE e.user_id = c.user_id AND e.company_id = c.id AND e.stopped_at IS NULL)
+		          WHERE e.user_id = c.user_id AND e.company_id = c.id
+		            AND e.stopped_at IS NULL AND e.deleted_at IS NULL)
 		   FROM companies c
 		  WHERE c.user_id = ?
 		  ORDER BY c.name COLLATE NOCASE, c.id`,
@@ -175,9 +223,26 @@ func (r *Repo) Running(ctx context.Context, userID int64) ([]Entry, error) {
 	return r.entries(ctx,
 		`SELECT e.id, e.company_id, c.name, e.task, e.started_at, e.stopped_at, e.manual
 		   FROM time_entries e JOIN companies c ON c.id = e.company_id
-		  WHERE e.user_id = ? AND e.stopped_at IS NULL
+		  WHERE e.user_id = ? AND e.stopped_at IS NULL AND e.deleted_at IS NULL
 		  ORDER BY e.started_at, e.id`,
 		userID)
+}
+
+// Entry returns one of userID's entries. Someone else's entry, a deleted one and
+// an id nobody has are all [ErrNotFound].
+func (r *Repo) Entry(ctx context.Context, userID, entryID int64) (Entry, error) {
+	entries, err := r.entries(ctx,
+		`SELECT e.id, e.company_id, c.name, e.task, e.started_at, e.stopped_at, e.manual
+		   FROM time_entries e JOIN companies c ON c.id = e.company_id
+		  WHERE e.user_id = ? AND e.id = ? AND e.deleted_at IS NULL`,
+		userID, entryID)
+	if err != nil {
+		return Entry{}, err
+	}
+	if len(entries) == 0 {
+		return Entry{}, ErrNotFound
+	}
+	return entries[0], nil
 }
 
 // AllEntries asks [Repo.Entries] for every matching entry instead of a page of
@@ -240,9 +305,9 @@ func (r *Repo) Totals(ctx context.Context, userID int64, p Period, companyID int
 }
 
 // overlap builds the WHERE clause selecting userID's entries that overlap p,
-// with a running entry treated as ending at now.
+// with a running entry treated as ending at now. Deleted entries are left out.
 func overlap(userID int64, p Period, companyID int64, now time.Time) (string, []any) {
-	where := `e.user_id = ? AND e.started_at < ? AND coalesce(e.stopped_at, ?) > ?`
+	where := `e.user_id = ? AND e.deleted_at IS NULL AND e.started_at < ? AND coalesce(e.stopped_at, ?) > ?`
 	args := []any{userID, p.To.Unix(), now.Unix(), p.From.Unix()}
 	if companyID > 0 {
 		where += ` AND e.company_id = ?`

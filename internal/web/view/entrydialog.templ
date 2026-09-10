@@ -1,0 +1,79 @@
+package view
+
+import (
+	"strconv"
+
+	"github.com/atvirokodosprendimai/app-taskerv1/internal/tracking"
+)
+
+// EntryDialog is where one entry is put right: its task name changed, or the
+// entry deleted.
+//
+// It is shaped and opened like [LogDialog] — a native <dialog> the server sends
+// and takes away, closed alike by Escape, Cancel and a press on the backdrop —
+// and it opens with the name as it stands. Delete asks for no confirmation: the
+// entry is deleted softly, and the message that replaces the dialog offers Undo.
+templ EntryDialog(f EntryForm) {
+	<div id="dialog">
+		<dialog
+			class="dialog"
+			aria-labelledby="entry-title"
+			aria-describedby="entry-for"
+			data-signals={ templ.JSONString(f.Signals()) }
+			data-init="el.showModal()"
+			data-on:close={ closeEntryAction(f.EntryID) }
+			data-on:pointerdown={ "evt.target === el && " + closeEntryAction(f.EntryID) }
+		>
+			<div class="dialog-body">
+				<div class="dialog-head">
+					<h2 id="entry-title">Edit entry</h2>
+					<p id="entry-for" class="muted">{ f.Company + " · " + f.When }</p>
+				</div>
+				@EntryMessage("")
+				<div class="field">
+					<label for="entry-task">Task name</label>
+					<input
+						id="entry-task"
+						class="input"
+						type="text"
+						maxlength={ strconv.Itoa(tracking.MaxTask) }
+						placeholder="What was it?"
+						autocomplete="off"
+						data-bind="entryTask"
+						data-on:keydown={ enterSubmits(saveTaskAction(f)) }
+					/>
+				</div>
+				<div class="dialog-actions">
+					<button
+						type="button"
+						class="btn btn-stop dialog-delete"
+						data-on:click={ deleteEntryAction(f) }
+						data-indicator="_deletingEntry"
+						data-attr:disabled="$_deletingEntry"
+					>Delete entry</button>
+					<button type="button" class="btn btn-quiet" data-on:click={ closeEntryAction(f.EntryID) }>Cancel</button>
+					<button
+						type="button"
+						class="btn btn-primary"
+						data-on:click={ saveTaskAction(f) }
+						data-indicator="_savingEntry"
+						data-attr:disabled="$_savingEntry"
+					>
+						<span class="spinner" data-show="$_savingEntry" style="display:none" aria-hidden="true"></span>
+						<span>Save</span>
+					</button>
+				</div>
+			</div>
+		</dialog>
+	</div>
+}
+
+// EntryMessage is the entry dialog's message slot, always rendered so a refusal
+// has somewhere to land. A refusal appears here and leaves what was typed.
+templ EntryMessage(msg string) {
+	<div id="entry-message" class="entry-message">
+		if msg != "" {
+			<p class="flash flash-error" role="alert">{ msg }</p>
+		}
+	</div>
+}

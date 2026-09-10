@@ -35,6 +35,7 @@ type UserReader interface {
 type TrackingReader interface {
 	Companies(ctx context.Context, userID int64) ([]tracking.Company, error)
 	Running(ctx context.Context, userID int64) ([]tracking.Entry, error)
+	Entry(ctx context.Context, userID, entryID int64) (tracking.Entry, error)
 	Entries(ctx context.Context, userID int64, p tracking.Period, companyID int64, now time.Time, limit int) ([]tracking.Entry, error)
 	Totals(ctx context.Context, userID int64, p tracking.Period, companyID int64, now time.Time) ([]tracking.CompanyTotal, error)
 }

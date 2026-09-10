@@ -80,3 +80,17 @@ templ Notice(msg, href, linkText string) {
 		</p>
 	</div>
 }
+
+// Confirmation reports a change in the page's message slot. With undo set it
+// carries the button that takes the change back, whose id is [UndoID] so that
+// focus can be put on it.
+templ Confirmation(msg, undo string) {
+	<div id="flash" class="flash-slot">
+		<p class="flash flash-ok" role="status">
+			{ msg }
+			if undo != "" {
+				<button type="button" id={ UndoID } class="btn btn-quiet btn-small btn-inline" data-on:click={ undo }>Undo</button>
+			}
+		</p>
+	</div>
+}

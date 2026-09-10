@@ -114,6 +114,8 @@ type Day struct {
 
 // EntryRow is one listed entry.
 type EntryRow struct {
+	// ID is the entry's own, which its Edit button acts on.
+	ID      int64
 	Company string
 	Task    string
 	// Range is when it ran, "09:00 – 10:30".
@@ -152,6 +154,7 @@ func BuildHistory(f tracking.Filter, p tracking.Period, loc *time.Location, now 
 	for _, e := range entries {
 		start, end := e.StartedAt.In(loc), e.End(now).In(loc)
 		row := EntryRow{
+			ID:       e.ID,
 			Company:  e.CompanyName,
 			Task:     e.Task,
 			Range:    entryRange(start, end, e.Running()),
