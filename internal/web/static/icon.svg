@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Tasker's stopwatch, the mark in assets/favicon.svg, on a square that fills
+       the whole canvas. The mark stays inside the central circle, 80% of the
+       width, that a launcher may crop a maskable icon to, so this one file
+       serves as both an "any" and a "maskable" icon. -->
+  <rect width="512" height="512" fill="#0f6b62"/>
+  <g transform="translate(256 256) scale(12.8) translate(-16 -16)" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round">
+    <circle cx="16" cy="18" r="9"/>
+    <path d="M16 18V12.5M13 5h6"/>
+  </g>
+</svg>

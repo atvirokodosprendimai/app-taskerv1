@@ -4,6 +4,7 @@ import (
 	"embed"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -13,10 +14,11 @@ import (
 	"github.com/atvirokodosprendimai/app-taskerv1/internal/web/render"
 )
 
-// assets holds the stylesheet and icon, served from the binary so a deployment
-// is one file with no static directory beside it to fall out of step.
+// assets holds the stylesheet and favicon under assets/, and the web app
+// manifest with its icons under static/ — served from the binary, so a
+// deployment is one file with no directory beside it to fall out of step.
 //
-//go:embed assets
+//go:embed assets static
 var assets embed.FS
 
 // ReadHeaderTimeout bounds how long a client may take to send its headers.
@@ -41,6 +43,8 @@ func (a *App) Routes() http.Handler {
 	r.Use(a.Sessions.LoadAndSave)
 
 	r.Handle("/assets/*", staticHandler())
+	// The web app manifest and its icons, at the addresses the manifest names.
+	r.Handle("/static/*", staticHandler())
 	r.Get("/favicon.ico", func(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/assets/favicon.svg", http.StatusMovedPermanently)
 	})
@@ -151,13 +155,19 @@ func (a *App) toLogin(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
-// staticHandler serves the embedded assets.
+// staticHandler serves the embedded files.
 func staticHandler() http.Handler {
 	fs := http.FileServer(http.FS(assets))
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// The assets change only when the binary does, and there is no content
+		// The files change only when the binary does, and there is no content
 		// hash in their URLs to bust a cache with, so an hour rather than forever.
 		w.Header().Set("Cache-Control", "public, max-age=3600")
+		// Go's built-in MIME table has no .webmanifest, and the distroless image
+		// has no system table to fill the gap. A type set here is one the file
+		// server keeps, instead of guessing text/plain from the content.
+		if strings.HasSuffix(r.URL.Path, ".webmanifest") {
+			w.Header().Set("Content-Type", "application/manifest+json")
+		}
 		fs.ServeHTTP(w, r)
 	})
 }

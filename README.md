@@ -109,6 +109,9 @@ the next page would be signed out again.
 - **One stream per dashboard.** It re-renders the running timers each second and
   the companies when something changes, and reconnects by itself after a server
   restart. Shutdown ends open streams instead of waiting for them.
+- **Installable.** A web app manifest and its icons are served from `/static/`, so a
+  browser can install Tasker as an app. `node scripts/browser/icons.mjs` renders
+  the PNG icons from their SVGs.
 - **Sessions** are kept server-side in SQLite. Every write must carry Datastar's
   request header, which a page on another site cannot add.
 
