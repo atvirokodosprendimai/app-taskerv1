@@ -119,6 +119,8 @@ type EntryRow struct {
 	// Duration is the part inside the period, which is what the totals count.
 	Duration time.Duration
 	Running  bool
+	// Manual marks an entry logged by hand afterwards rather than timed live.
+	Manual bool
 }
 
 // BuildHistory assembles the results for a period from its totals and its
@@ -153,6 +155,7 @@ func BuildHistory(f tracking.Filter, p tracking.Period, loc *time.Location, now 
 			Range:    entryRange(start, end, e.Running()),
 			Duration: p.Clip(e.StartedAt, e.End(now)),
 			Running:  e.Running(),
+			Manual:   e.Manual,
 		}
 		// Entries arrive newest first, so one day's entries are contiguous.
 		label := dayLabel(start, today)

@@ -68,3 +68,15 @@ templ Flash(msg string) {
 		}
 	</div>
 }
+
+// Notice puts a confirmation in the page's message slot, with a link to where
+// the result can be seen. It shares Flash's slot, so the next action that
+// clears the slot clears this as well.
+templ Notice(msg, href, linkText string) {
+	<div id="flash" class="flash-slot">
+		<p class="flash flash-ok" role="status">
+			{ msg + " " }
+			<a href={ templ.URL(href) }>{ linkText }</a>
+		</p>
+	</div>
+}

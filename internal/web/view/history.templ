@@ -177,6 +177,9 @@ templ HistoryResultsFragment(r HistoryResults) {
 												if e.Running {
 													<span class="badge">running</span>
 												}
+												if e.Manual {
+													<span class="badge badge-quiet">manual</span>
+												}
 											</span>
 											<span class="entry-duration mono">{ HoursMinutes(e.Duration) }</span>
 										</li>

@@ -29,6 +29,7 @@
   --tap: 44px;
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+  --scrim: rgb(28 26 22 / 45%);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -50,6 +51,7 @@
     --stop-soft: #3a1d1b;
     --focus: #8ab4ff;
     --shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 28%);
+    --scrim: rgb(0 0 0 / 62%);
   }
 }
 
@@ -273,7 +275,9 @@ select.input { padding-right: 8px; }
   border: 1px solid var(--line); border-radius: var(--radius);
 }
 .company.is-running { border-color: color-mix(in srgb, var(--run) 40%, var(--line)); }
-.company-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 28px; }
+/* The heading row wraps: a long company name takes the whole row and the tools
+   move below it, rather than the name being squeezed until it breaks mid-word. */
+.company-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; min-height: 28px; }
 .company-head h3 { font-size: 17px; overflow-wrap: anywhere; }
 
 .badge {
@@ -384,4 +388,54 @@ select.input { padding-right: 8px; }
   .pulse, .spinner { animation: none; }
   .btn { transition: none; }
   .results-wrap { transition: none; }
+}
+
+/* ── logging time by hand ─────────────────────────────────────────────── */
+
+.company-tools { display: flex; align-items: center; gap: 8px; flex-shrink: 0; margin-left: auto; }
+
+/* A compact button that still takes a full-size tap: the ::after stretches the
+   touch target to --tap without making the card's heading row taller. */
+.btn-small { position: relative; min-height: 34px; padding: 0 12px; font-size: 14px; }
+.btn-small::after { content: ""; position: absolute; inset: -5px 0; }
+
+/* Buttons draw their own pressed state; the browser's tap highlight would tint
+   them on top of it and linger on some phones. */
+.btn { -webkit-tap-highlight-color: transparent; }
+
+.badge-quiet { background: var(--surface-2); color: var(--muted); box-shadow: inset 0 0 0 1px var(--line); }
+.badge-quiet::before { display: none; }
+
+.flash-ok {
+  background: var(--accent-soft); color: var(--ink);
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.flash-ok a { font-weight: 700; }
+
+/* A native <dialog> opened with showModal(). Its padding lives on .dialog-body,
+   which fills it, so the only place a press lands on the <dialog> itself is the
+   backdrop — which is how the backdrop is told apart. */
+.dialog {
+  width: min(100% - 32px, 540px); max-width: none; max-height: calc(100dvh - 32px);
+  padding: 0; border: 0; border-radius: 18px; overflow: hidden;
+  background: var(--surface); color: var(--ink);
+  box-shadow: var(--shadow), 0 0 0 1px var(--line);
+}
+/* ::backdrop inherits custom properties only in current engines; the fallback
+   keeps an older one from drawing no scrim at all. */
+.dialog::backdrop { background: var(--scrim, rgb(28 26 22 / 45%)); }
+.dialog-body {
+  display: grid; gap: 14px; max-height: inherit; overflow: auto;
+  padding: clamp(18px, 4vw, 26px);
+}
+.dialog-head h2 { font-size: 21px; letter-spacing: -0.01em; }
+.dialog-head p { margin-top: 2px; font-size: 14px; }
+.dialog-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); align-items: start; }
+.dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; }
+.log-message:empty { display: none; }
+
+/* On a phone the dialog rises from the bottom edge, where a thumb can reach it. */
+@media (max-width: 480px) {
+  .dialog { width: 100%; max-height: 92dvh; margin: auto 0 0; border-radius: 18px 18px 0 0; }
+  .dialog-actions .btn { flex: 1; }
 }

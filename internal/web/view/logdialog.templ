@@ -1,0 +1,115 @@
+package view
+
+import (
+	"strconv"
+
+	"github.com/atvirokodosprendimai/app-taskerv1/internal/tracking"
+)
+
+// NoDialog is the dashboard's dialog slot with nothing in it. It is always in
+// the page, so a dialog can be patched into it and patched away again.
+templ NoDialog() {
+	<div id="dialog"></div>
+}
+
+// LogDialog asks for time spent earlier on one company — what it was, how long
+// it took, and when — for work nobody timed, like a phone call.
+//
+// The server sends it when Log time is pressed and takes it away the same way;
+// it is never kept hidden in the page. It is a native <dialog> opened with
+// showModal(), which makes it modal in fact and not only in ARIA: the page
+// behind turns inert, Tab stays inside, focus lands on the first field, and it
+// draws above the sticky top bar. Escape — or a phone's back gesture — closes it
+// natively and fires close, which asks the server to take it away, so Escape,
+// Cancel and a press on the backdrop all end in the same place.
+//
+// The backdrop is caught on pointerdown, not click. A click goes to the nearest
+// element under both the press and the release, so selecting text in a field
+// and letting go outside the dialog would count as a press on the backdrop and
+// throw away what was typed.
+//
+// Its signals are seeded as it arrives, so every opening starts blank, and its
+// inputs carry no value of their own: a declared signal wins over a bound
+// input's value, and two sources for one field is how they come to disagree.
+templ LogDialog(f LogForm) {
+	<div id="dialog">
+		<dialog
+			class="dialog"
+			aria-labelledby="log-title"
+			aria-describedby="log-for"
+			data-signals={ templ.JSONString(f.Signals()) }
+			data-init="el.showModal()"
+			data-on:close={ closeLogAction(f.CompanyID) }
+			data-on:pointerdown={ "evt.target === el && " + closeLogAction(f.CompanyID) }
+		>
+			<div class="dialog-body">
+				<div class="dialog-head">
+					<h2 id="log-title">Log time</h2>
+					<p id="log-for" class="muted">{ "For " + f.CompanyName + " — a call, a meeting, anything nobody timed." }</p>
+				</div>
+				@LogMessage("")
+				<div class="field">
+					<label for="log-task">What was it?</label>
+					<input
+						id="log-task"
+						class="input"
+						type="text"
+						maxlength={ strconv.Itoa(tracking.MaxTask) }
+						placeholder="Phone call"
+						autocomplete="off"
+						data-bind="logTask"
+						data-on:keydown={ enterSubmits(logAction(f.CompanyID)) }
+					/>
+				</div>
+				<div class="dialog-grid">
+					<div class="field">
+						<label for="log-duration">How long?</label>
+						<input
+							id="log-duration"
+							class="input"
+							type="text"
+							placeholder="45m or 1:30"
+							autocomplete="off"
+							aria-describedby="log-duration-hint"
+							data-bind="logDuration"
+							data-on:keydown={ enterSubmits(logAction(f.CompanyID)) }
+						/>
+						<p id="log-duration-hint" class="hint">45m, 1h30m, 1:30 or 1.5 — up to 24 hours.</p>
+					</div>
+					<div class="field">
+						<label for="log-date">Day</label>
+						<input id="log-date" class="input" type="date" max={ f.Today } data-bind="logDate"/>
+					</div>
+					<div class="field">
+						<label for="log-at">Started at</label>
+						<input id="log-at" class="input" type="time" aria-describedby="log-at-hint" data-bind="logAt"/>
+						<p id="log-at-hint" class="hint">Leave empty if it has just ended.</p>
+					</div>
+				</div>
+				<div class="dialog-actions">
+					<button type="button" class="btn btn-quiet" data-on:click={ closeLogAction(f.CompanyID) }>Cancel</button>
+					<button
+						type="button"
+						class="btn btn-primary"
+						data-on:click={ logAction(f.CompanyID) }
+						data-indicator="_logging"
+						data-attr:disabled="$_logging"
+					>
+						<span class="spinner" data-show="$_logging" style="display:none" aria-hidden="true"></span>
+						<span>Add to history</span>
+					</button>
+				</div>
+			</div>
+		</dialog>
+	</div>
+}
+
+// LogMessage is the dialog's message slot, always rendered so a patch has
+// somewhere to land. A refusal appears here and leaves what was typed in place.
+templ LogMessage(msg string) {
+	<div id="log-message" class="log-message">
+		if msg != "" {
+			<p class="flash flash-error" role="alert">{ msg }</p>
+		}
+	</div>
+}

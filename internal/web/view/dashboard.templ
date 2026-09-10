@@ -62,6 +62,7 @@ templ DashboardPage(d Dashboard) {
 				@CompanyList(d.Companies)
 			</section>
 		</div>
+		@NoDialog()
 	}
 }
 
@@ -130,9 +131,20 @@ templ companyCard(c tracking.Company) {
 	<article class={ "company", templ.KV("is-running", c.Running > 0) } id={ companyDOMID(c.ID) }>
 		<div class="company-head">
 			<h3>{ c.Name }</h3>
-			if c.Running > 0 {
-				<span class="badge">{ runningLabel(c.Running) }</span>
-			}
+			<div class="company-tools">
+				if c.Running > 0 {
+					<span class="badge">{ runningLabel(c.Running) }</span>
+				}
+				<button
+					type="button"
+					id={ LogOpenerID(c.ID) }
+					class="btn btn-quiet btn-small"
+					aria-haspopup="dialog"
+					data-on:click={ openLogAction(c.ID) }
+				>
+					Log time<span class="sr-only">{ " for " + c.Name }</span>
+				</button>
+			</div>
 		</div>
 		<div class="start-row">
 			<label class="sr-only" for={ taskInputID(c.ID) }>{ "What are you working on for " + c.Name + "?" }</label>

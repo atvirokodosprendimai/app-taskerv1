@@ -132,13 +132,15 @@ function signalsOf(req) {
   return JSON.parse(raw ?? 'null');
 }
 
-// shot takes a full-page screenshot with transitions and animations stopped, so
-// the picture is the state the page settled into rather than a frame halfway
+// shot takes a screenshot with transitions and animations stopped, so the
+// picture is the state the page settled into rather than a frame halfway
 // through a colour or opacity change — which reads as a styling defect that is
-// not there.
-async function shot(page, name, colorScheme = 'light') {
+// not there. A dialog is taken at the viewport instead of the full page: it is
+// fixed to the viewport, so a full-page capture would centre it in a screen
+// stretched to the page's height.
+async function shot(page, name, colorScheme = 'light', fullPage = true) {
   await page.emulateMedia({ reducedMotion: 'reduce', colorScheme });
-  await page.screenshot({ path: join(shots, name), fullPage: true });
+  await page.screenshot({ path: join(shots, name), fullPage });
   await page.emulateMedia({ reducedMotion: 'no-preference', colorScheme: 'light' });
 }
 
@@ -257,6 +259,46 @@ async function desktop(browser) {
   check(navigations.length === 0, `the dashboard never reloaded (${navigations.length} navigations)`);
   await tab.close();
 
+  // Time logged by hand: a phone call nobody timed.
+  const acmeLog = card(page, 'Acme').locator('button', { hasText: 'Log time' });
+  const vilniusToday = new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/Vilnius' }).format(new Date());
+  await acmeLog.click();
+  await page.waitForSelector('dialog.dialog[open]');
+  check(await page.evaluate(() => document.querySelector('dialog.dialog').matches(':modal')), 'Log time opens a modal dialog');
+  check(await page.evaluate(() => document.activeElement?.id === 'log-task'), 'the dialog puts the cursor in its first field');
+  const logDay = await page.inputValue('#log-date');
+  check(logDay === vilniusToday, `the dialog starts on today in the user's time zone (${logDay})`);
+  await page.fill('#log-task', 'Phone call');
+  await page.fill('#log-duration', '25h');
+  await page.press('#log-duration', 'Enter');
+  await page.waitForSelector('#log-message .flash-error');
+  check((await page.textContent('#log-message')).includes('at most 24 hours'), 'a duration over a day is explained inside the dialog');
+  check((await page.inputValue('#log-task')) === 'Phone call', 'a refused entry keeps what was typed');
+  await page.fill('#log-duration', '25m');
+  await shot(page, 'desktop-log-time.png', 'light', false);
+  await page.click('dialog.dialog button:has-text("Add to history")');
+  await page.waitForFunction(() => !document.querySelector('#dialog dialog'));
+  const logged = signalsOf(sent.last('POST', /^\/companies\/\d+\/entries$/));
+  check(
+    JSON.stringify(Object.keys(logged).sort()) === '["logAt","logDate","logDuration","logTask"]' &&
+      logged.logTask === 'Phone call' && logged.logDuration === '25m' && logged.logDate === vilniusToday,
+    `adding logged time sends the dialog's fields and nothing else (${JSON.stringify(logged)})`,
+  );
+  await page.waitForSelector('#flash .flash-ok');
+  check((await page.textContent('#flash')).includes('Added 25m to Acme'), 'the page confirms the logged time and names the company');
+  const focusBack = await page
+    .waitForFunction(() => document.activeElement?.id?.startsWith('log-open-'), null, { timeout: 3000 })
+    .then(() => true, () => false);
+  check(focusBack, 'focus returns to the Log time button');
+  check((await page.locator('#running-timers li.timer').count()) === 1, 'logged time does not show as a running timer');
+
+  await acmeLog.click();
+  await page.waitForSelector('dialog.dialog[open]');
+  check((await page.inputValue('#log-task')) === '' && (await page.inputValue('#log-duration')) === '', 'the dialog opens blank the next time');
+  await page.keyboard.press('Escape');
+  await page.waitForFunction(() => !document.querySelector('#dialog dialog'));
+  check(true, 'Escape closes the dialog');
+
   // History.
   await page.click('nav a:has-text("History")');
   await page.waitForURL(`${base}/history`);
@@ -290,6 +332,8 @@ async function desktop(browser) {
   await page.waitForFunction(() => location.search.includes('mode=year'));
   check((await results(page)).includes('Invoices'), 'the This year preset shows the entries');
   check((await modeButton(page, 'Year').getAttribute('aria-pressed')) === 'true', 'the preset presses the Year button');
+  const yearText = await results(page);
+  check(yearText.includes('Phone call') && yearText.includes('manual'), 'the history lists the logged call, marked manual');
   await shot(page, 'desktop-history.png');
 
   await page.reload({ waitUntil: 'load' });
@@ -349,6 +393,27 @@ async function phone(browser) {
   const stop = await page.locator('#running-timers .btn-stop').first().boundingBox();
   check(stop.width >= 44 && stop.height >= 44, `the Stop button is a comfortable tap target (${Math.round(stop.width)}×${Math.round(stop.height)})`);
   await shot(page, 'phone-dashboard.png');
+
+  const logTime = card(page, name).locator('button', { hasText: 'Log time' });
+  const logBox = await logTime.boundingBox();
+  const hitAbove = await page.evaluate(
+    ([x, y]) => document.elementFromPoint(x, y)?.closest('button')?.id ?? '',
+    [logBox.x + logBox.width / 2, logBox.y - 4],
+  );
+  check(
+    logBox.height >= 44 || hitAbove.startsWith('log-open-'),
+    `the compact Log time button still takes a full-size tap (${Math.round(logBox.width)}×${Math.round(logBox.height)}, hit above: ${hitAbove})`,
+  );
+  await logTime.tap();
+  await page.waitForSelector('dialog.dialog[open]');
+  const sheet = await page.locator('dialog.dialog').boundingBox();
+  const vh = await page.evaluate(() => window.innerHeight);
+  check(Math.abs(sheet.y + sheet.height - vh) <= 1 && sheet.width >= 389, `on a phone the dialog is a sheet along the bottom edge (top ${Math.round(sheet.y)}, height ${Math.round(sheet.height)})`);
+  check(await noSideScroll(page), 'the log-time dialog fits a 390 px screen');
+  await shot(page, 'phone-log-time.png', 'light', false);
+  await page.tap('dialog.dialog button:has-text("Cancel")');
+  await page.waitForFunction(() => !document.querySelector('#dialog dialog'));
+  check(true, 'Cancel closes the dialog');
 
   await page.tap('nav a:has-text("History")');
   await page.waitForURL(`${base}/history`);

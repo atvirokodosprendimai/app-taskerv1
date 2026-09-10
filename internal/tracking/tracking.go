@@ -56,6 +56,8 @@ type Entry struct {
 	StartedAt time.Time
 	// StoppedAt is the zero time while the timer is running.
 	StoppedAt time.Time
+	// Manual reports an entry logged by hand afterwards rather than timed live.
+	Manual bool
 }
 
 // Running reports whether the timer has not been stopped.

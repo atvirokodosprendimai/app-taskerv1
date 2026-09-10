@@ -95,6 +95,16 @@ func (a *App) userMessage(err error) string {
 		return fmt.Sprintf("That password is too long. Use %d characters or fewer.", auth.MaxPasswordBytes)
 	case errors.Is(err, auth.ErrEmailTaken):
 		return "An account with that email already exists. Sign in instead."
+	case errors.Is(err, tracking.ErrInvalidDuration):
+		return "Enter how long it took, like 45m, 1h30m or 1:30."
+	case errors.Is(err, tracking.ErrDurationTooLong):
+		return fmt.Sprintf("One entry can be at most %d hours. Log a longer stretch a day at a time.", int(tracking.MaxLogged.Hours()))
+	case errors.Is(err, tracking.ErrLoggedInFuture):
+		return "That time has not happened yet. Log time that has already been spent."
+	case errors.Is(err, errStartTimeRequired):
+		return "Add a start time for a day other than today."
+	case errors.Is(err, errInvalidWhen):
+		return "Pick the day and the start time with the pickers."
 	}
 	a.Log.Error("unexpected error", "err", err)
 	return "Something went wrong on our side. Please try again."

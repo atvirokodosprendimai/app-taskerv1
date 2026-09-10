@@ -12,6 +12,7 @@ type Store interface {
 	CreateCompany(ctx context.Context, userID int64, name string, at time.Time) (Company, error)
 	StartEntry(ctx context.Context, userID, companyID int64, task string, at time.Time) (Entry, error)
 	StopEntry(ctx context.Context, userID, entryID int64, at time.Time) error
+	LogEntry(ctx context.Context, userID, companyID int64, task string, start, end time.Time) (Entry, error)
 }
 
 // Service is the write side of time tracking: the single writer of companies
@@ -55,6 +56,31 @@ func (s *Service) Start(ctx context.Context, userID, companyID int64, task strin
 // Stop stops one of userID's running timers.
 func (s *Service) Stop(ctx context.Context, userID, entryID int64) error {
 	return s.store.StopEntry(ctx, userID, entryID, s.now())
+}
+
+// Log records time spent earlier on one of userID's companies: d long, starting
+// at start. It is how a phone call or a meeting that nobody timed still counts.
+//
+// The time must already have been spent, so logged time that would end after
+// now is refused, and d must be above zero and at most [MaxLogged].
+func (s *Service) Log(ctx context.Context, userID, companyID int64, task string, start time.Time, d time.Duration) (Entry, error) {
+	task = collapseSpace(task)
+	if utf8.RuneCountInString(task) > MaxTask {
+		return Entry{}, ErrTaskTooLong
+	}
+	switch {
+	case d <= 0:
+		return Entry{}, ErrInvalidDuration
+	case d > MaxLogged:
+		return Entry{}, ErrDurationTooLong
+	}
+	end := start.Add(d)
+	// A minute's grace: a call typed in at 14:30:40 as ending at 14:31 is the
+	// person rounding, not a claim about the future.
+	if end.After(s.now().Add(time.Minute)) {
+		return Entry{}, ErrLoggedInFuture
+	}
+	return s.store.LogEntry(ctx, userID, companyID, task, start, end)
 }
 
 // collapseSpace trims s and collapses every run of whitespace, newlines

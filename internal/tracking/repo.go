@@ -99,6 +99,41 @@ func (r *Repo) StopEntry(ctx context.Context, userID, entryID int64, at time.Tim
 	return nil
 }
 
+// LogEntry records time spent earlier, from start to end, against one of
+// userID's companies, and marks it as logged by hand. A company that is not the
+// user's is [ErrNotFound], and nothing is written.
+//
+// Like [Repo.StartEntry], the INSERT checks ownership itself by selecting the
+// company scoped to the user.
+func (r *Repo) LogEntry(ctx context.Context, userID, companyID int64, task string, start, end time.Time) (Entry, error) {
+	res, err := r.write.ExecContext(ctx,
+		`INSERT INTO time_entries (user_id, company_id, task, started_at, stopped_at, manual)
+		 SELECT user_id, id, ?, ?, ?, 1 FROM companies WHERE id = ? AND user_id = ?`,
+		task, start.Unix(), end.Unix(), companyID, userID)
+	if err != nil {
+		return Entry{}, fmt.Errorf("tracking: log entry: %w", err)
+	}
+	n, err := res.RowsAffected()
+	if err != nil {
+		return Entry{}, fmt.Errorf("tracking: log entry: %w", err)
+	}
+	if n == 0 {
+		return Entry{}, ErrNotFound
+	}
+	id, err := res.LastInsertId()
+	if err != nil {
+		return Entry{}, fmt.Errorf("tracking: log entry: %w", err)
+	}
+	return Entry{
+		ID:        id,
+		CompanyID: companyID,
+		Task:      task,
+		StartedAt: unix(start.Unix()),
+		StoppedAt: unix(end.Unix()),
+		Manual:    true,
+	}, nil
+}
+
 // ---- read side --------------------------------------------------------------
 
 // Companies returns userID's companies by name, each with its count of running
@@ -138,7 +173,7 @@ func (r *Repo) Companies(ctx context.Context, userID int64) ([]Company, error) {
 // Running returns userID's running timers, oldest first.
 func (r *Repo) Running(ctx context.Context, userID int64) ([]Entry, error) {
 	return r.entries(ctx,
-		`SELECT e.id, e.company_id, c.name, e.task, e.started_at, e.stopped_at
+		`SELECT e.id, e.company_id, c.name, e.task, e.started_at, e.stopped_at, e.manual
 		   FROM time_entries e JOIN companies c ON c.id = e.company_id
 		  WHERE e.user_id = ? AND e.stopped_at IS NULL
 		  ORDER BY e.started_at, e.id`,
@@ -151,7 +186,7 @@ func (r *Repo) Running(ctx context.Context, userID int64) ([]Entry, error) {
 func (r *Repo) Entries(ctx context.Context, userID int64, p Period, companyID int64, now time.Time, limit int) ([]Entry, error) {
 	where, args := overlap(userID, p, companyID, now)
 	return r.entries(ctx,
-		`SELECT e.id, e.company_id, c.name, e.task, e.started_at, e.stopped_at
+		`SELECT e.id, e.company_id, c.name, e.task, e.started_at, e.stopped_at, e.manual
 		   FROM time_entries e JOIN companies c ON c.id = e.company_id
 		  WHERE `+where+`
 		  ORDER BY e.started_at DESC, e.id DESC
@@ -226,7 +261,7 @@ func (r *Repo) entries(ctx context.Context, query string, args ...any) ([]Entry,
 			started int64
 			stopped sql.NullInt64
 		)
-		if err := rows.Scan(&e.ID, &e.CompanyID, &e.CompanyName, &e.Task, &started, &stopped); err != nil {
+		if err := rows.Scan(&e.ID, &e.CompanyID, &e.CompanyName, &e.Task, &started, &stopped, &e.Manual); err != nil {
 			return nil, fmt.Errorf("tracking: list entries: %w", err)
 		}
 		e.StartedAt = unix(started)

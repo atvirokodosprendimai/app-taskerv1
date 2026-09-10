@@ -64,6 +64,12 @@ func (a *App) Routes() http.Handler {
 		r.Post("/companies", a.PostCompany)
 		r.Post("/companies/{id}/timers", a.PostStart)
 		r.Post("/timers/{id}/stop", a.PostStop)
+		// Time logged by hand. The server sends the dialog and takes it away, so
+		// opening and closing are round trips rather than a toggle hidden in the
+		// page.
+		r.Get("/companies/{id}/log", a.GetLogDialog)
+		r.Get("/companies/{id}/log/close", a.GetCloseLogDialog)
+		r.Post("/companies/{id}/entries", a.PostLog)
 
 		r.Get("/history", a.GetHistory)
 		r.Get("/history/results", a.GetHistoryResults)
