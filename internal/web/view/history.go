@@ -86,6 +86,8 @@ type HistoryResults struct {
 	// Shown is how many entries are listed; fewer than Entries when the list
 	// was limited. Totals always cover every entry.
 	Shown int
+	// Export is the address that downloads this period's report.
+	Export string
 }
 
 // Truncated reports whether the list shows fewer entries than the totals count.

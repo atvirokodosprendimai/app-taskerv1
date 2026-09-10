@@ -117,7 +117,9 @@ func (a *App) history(ctx context.Context, u auth.User, f tracking.Filter, now t
 	if err != nil {
 		return view.HistoryResults{}, err
 	}
-	return view.BuildHistory(f, p, loc, now, totals, entries), nil
+	res := view.BuildHistory(f, p, loc, now, totals, entries)
+	res.Export = "/history/export?" + historyQuery(f).Encode()
+	return res, nil
 }
 
 // filterFromQuery reads a filter from a history URL. A missing field takes its

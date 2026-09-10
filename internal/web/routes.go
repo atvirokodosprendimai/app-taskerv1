@@ -73,6 +73,8 @@ func (a *App) Routes() http.Handler {
 
 		r.Get("/history", a.GetHistory)
 		r.Get("/history/results", a.GetHistoryResults)
+		// The period on screen as a plain-text report, downloaded by a plain link.
+		r.Get("/history/export", a.GetHistoryExport)
 	})
 	return r
 }

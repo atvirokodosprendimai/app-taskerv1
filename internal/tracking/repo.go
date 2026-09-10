@@ -180,9 +180,14 @@ func (r *Repo) Running(ctx context.Context, userID int64) ([]Entry, error) {
 		userID)
 }
 
+// AllEntries asks [Repo.Entries] for every matching entry instead of a page of
+// them. SQLite reads a negative LIMIT as no limit at all.
+const AllEntries = -1
+
 // Entries returns userID's entries that overlap p, newest first, at most limit
-// of them. A running entry overlaps p when it started before p ends. companyID
-// narrows the list to one company; zero means all.
+// of them, or all of them for [AllEntries]. A running entry overlaps p when it
+// started before p ends. companyID narrows the list to one company; zero means
+// all.
 func (r *Repo) Entries(ctx context.Context, userID int64, p Period, companyID int64, now time.Time, limit int) ([]Entry, error) {
 	where, args := overlap(userID, p, companyID, now)
 	return r.entries(ctx,

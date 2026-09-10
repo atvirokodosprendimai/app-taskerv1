@@ -336,6 +336,17 @@ async function desktop(browser) {
   check(yearText.includes('Phone call') && yearText.includes('manual'), 'the history lists the logged call, marked manual');
   await shot(page, 'desktop-history.png');
 
+  // The report of the period on screen: the total, then how long and what.
+  const exportLink = page.locator('#history-results a', { hasText: 'Export report' });
+  const exportHref = await exportLink.getAttribute('href');
+  check(exportHref?.includes('mode=year') && exportHref.includes('company='), `the Export link carries the period and company on screen (${exportHref})`);
+  const [download] = await Promise.all([page.waitForEvent('download'), exportLink.click()]);
+  const report = readFileSync(await download.path(), 'utf8').trimEnd().split('\n');
+  check(/^total for period \d+h\d{2}m$/.test(report[0]), `the report opens with the period's total (${report[0]})`);
+  check(report.some(l => /^\d+h\d{2}m Phone call$/.test(l)), `the report lists the logged call by how long and what (${JSON.stringify(report)})`);
+  check(!report.some(l => /\d{1,2}:\d{2}/.test(l)), 'the report says nothing about when each entry ran');
+  check(download.suggestedFilename() === `tasker-${vilniusToday.slice(0, 4)}.txt`, `the report is named for its period (${download.suggestedFilename()})`);
+
   await page.reload({ waitUntil: 'load' });
   check((await modeButton(page, 'Year').getAttribute('aria-pressed')) === 'true', 'a reload keeps the period');
   check((await page.inputValue('#hist-company')) !== '', 'a reload keeps the company');

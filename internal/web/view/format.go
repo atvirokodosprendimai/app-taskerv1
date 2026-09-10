@@ -26,12 +26,16 @@ func HoursMinutes(d time.Duration) string {
 	if d < 0 {
 		d = 0
 	}
-	m := int64((d + 30*time.Second) / time.Minute)
+	m := wholeMinutes(d)
 	if m < 60 {
 		return fmt.Sprintf("%dm", m)
 	}
 	return fmt.Sprintf("%dh %02dm", m/60, m%60)
 }
+
+// wholeMinutes rounds a duration to the nearest minute, the precision every
+// figure the history shows is given in.
+func wholeMinutes(d time.Duration) int64 { return int64((d + 30*time.Second) / time.Minute) }
 
 // DecimalHours renders a duration as hours to two places, "3.08" — the figure
 // an invoice wants.

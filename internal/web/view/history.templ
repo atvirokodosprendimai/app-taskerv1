@@ -158,6 +158,9 @@ templ HistoryResultsFragment(r HistoryResults) {
 					<section class="panel" aria-labelledby="entries-heading">
 						<div class="panel-head">
 							<h2 id="entries-heading">Entries</h2>
+							<a class="btn btn-quiet btn-small" href={ templ.URL(r.Export) } download>
+								Export report<span class="sr-only">{ " for " + r.Label }</span>
+							</a>
 						</div>
 						for _, d := range r.Days {
 							<div class="day">

@@ -146,6 +146,9 @@ a:hover { text-decoration-thickness: 2px; }
 }
 .btn:active { transform: translateY(1px); }
 .btn:disabled { opacity: .6; cursor: progress; }
+/* A download is a link dressed as a button: it keeps the button's look rather
+   than the underline every other link gets. */
+a.btn { text-decoration: none; }
 
 .btn-primary { background: var(--accent); color: var(--accent-ink); }
 .btn-primary:hover { background: color-mix(in srgb, var(--accent) 86%, var(--ink)); }
