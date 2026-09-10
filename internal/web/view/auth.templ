@@ -1,0 +1,139 @@
+package view
+
+// AuthPage renders sign-in or registration.
+//
+// ⚠ No <form> element, by team decision: inputs are bound to signals and the
+// button posts them. Signals are bound by VALUE (data-bind="loginEmail"), which
+// datastar uses exactly as written.
+templ AuthPage(a Auth) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			if a.Register {
+				@head("Create your account")
+			} else {
+				@head("Sign in")
+			}
+		</head>
+		<body>
+			if a.Register {
+				<main class="auth" data-signals="{registerTimezone: ''}">
+					<div class="auth-card">
+						@authBrand()
+						<div>
+							<h1>Create your account</h1>
+							<p class="lede">Track several tasks at once, for every company you work with.</p>
+						</div>
+						@AuthMessage("")
+						<!--
+						  The zone is filled from the browser, not typed. History days,
+						  months and years are reckoned in it, so "today" means the
+						  person's today rather than the server's.
+						-->
+						<div data-init="$registerTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone || ''"></div>
+						<div class="field">
+							<label for="email">Email</label>
+							<input
+								id="email"
+								class="input"
+								type="email"
+								inputmode="email"
+								autocomplete="email"
+								required
+								autofocus
+								data-bind="registerEmail"
+								data-on:keydown={ enterSubmits("@post('/register')") }
+							/>
+						</div>
+						<div class="field">
+							<label for="password">Password</label>
+							<input
+								id="password"
+								class="input"
+								type="password"
+								autocomplete="new-password"
+								required
+								minlength="8"
+								aria-describedby="password-hint"
+								data-bind="registerPassword"
+								data-on:keydown={ enterSubmits("@post('/register')") }
+							/>
+							<p id="password-hint" class="hint">At least 8 characters. There is no password reset, so keep it somewhere safe.</p>
+						</div>
+						@authButton("@post('/register')", "Create account")
+						<p class="auth-switch">Already have an account? <a href="/login">Sign in</a></p>
+					</div>
+				</main>
+			} else {
+				<main class="auth">
+					<div class="auth-card">
+						@authBrand()
+						<div>
+							<h1>Sign in</h1>
+							<p class="lede">Welcome back. Your timers kept running.</p>
+						</div>
+						@AuthMessage("")
+						<div class="field">
+							<label for="email">Email</label>
+							<input
+								id="email"
+								class="input"
+								type="email"
+								inputmode="email"
+								autocomplete="username"
+								required
+								autofocus
+								data-bind="loginEmail"
+								data-on:keydown={ enterSubmits("@post('/login')") }
+							/>
+						</div>
+						<div class="field">
+							<label for="password">Password</label>
+							<input
+								id="password"
+								class="input"
+								type="password"
+								autocomplete="current-password"
+								required
+								data-bind="loginPassword"
+								data-on:keydown={ enterSubmits("@post('/login')") }
+							/>
+						</div>
+						@authButton("@post('/login')", "Sign in")
+						<p class="auth-switch">New here? <a href="/register">Create an account</a></p>
+					</div>
+				</main>
+			}
+		</body>
+	</html>
+}
+
+templ authBrand() {
+	<div class="auth-brand">
+		<img src="/assets/favicon.svg" alt="" width="32" height="32"/>
+		<span>Tasker</span>
+	</div>
+}
+
+templ authButton(action, label string) {
+	<button
+		type="button"
+		class="btn btn-primary"
+		data-on:click={ action }
+		data-indicator="_authBusy"
+		data-attr:disabled="$_authBusy"
+	>
+		<span class="spinner" data-show="$_authBusy" style="display:none" aria-hidden="true"></span>
+		<span>{ label }</span>
+	</button>
+}
+
+// AuthMessage is the sign-in screen's message slot, always rendered so a patch
+// has somewhere to land.
+templ AuthMessage(msg string) {
+	<div id="auth-message">
+		if msg != "" {
+			<p class="flash flash-error" role="alert">{ msg }</p>
+		}
+	</div>
+}

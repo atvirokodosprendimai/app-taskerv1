@@ -1,0 +1,212 @@
+package view
+
+import (
+	"strconv"
+
+	"github.com/atvirokodosprendimai/app-taskerv1/internal/tracking"
+)
+
+// refreshHistory asks for new results with the current filter signals.
+const refreshHistory = "@get('/history/results')"
+
+// HistoryPage is where the time went: a filter bar and its results.
+//
+// The filter's signals are seeded from the filter the server rendered, and the
+// inputs carry no value of their own (see [HistorySignals]).
+templ HistoryPage(h History) {
+	@Shell(h.Page) {
+		<div class="page-head">
+			<div>
+				<h1>History</h1>
+				<p>Where the time went — by day, month, year or any period.</p>
+			</div>
+		</div>
+		@Flash("")
+		<section class="panel filters" aria-label="Filter history" data-signals={ templ.JSONString(SignalsFor(h.Filter)) }>
+			<div class="filter-top">
+				<div class="segmented" role="group" aria-label="Period type">
+					@modeButton(tracking.ModeDay, "Day", h.Filter.Mode)
+					@modeButton(tracking.ModeMonth, "Month", h.Filter.Mode)
+					@modeButton(tracking.ModeYear, "Year", h.Filter.Mode)
+					@modeButton(tracking.ModeRange, "Period", h.Filter.Mode)
+				</div>
+				<div class="presets" role="group" aria-label="Quick periods">
+					@presetButton("today", "Today")
+					@presetButton("week", "This week")
+					@presetButton("month", "This month")
+					@presetButton("last-month", "Last month")
+					@presetButton("year", "This year")
+				</div>
+			</div>
+			<div class="filter-row">
+				<div class="stepper">
+					<button
+						type="button"
+						class="btn btn-quiet"
+						aria-label="Previous period"
+						data-on:click="@get('/history/results?shift=-1')"
+						data-indicator="_histLoading"
+					>← Prev</button>
+					<button
+						type="button"
+						class="btn btn-quiet"
+						aria-label="Next period"
+						data-on:click="@get('/history/results?shift=1')"
+						data-indicator="_histLoading"
+					>Next →</button>
+				</div>
+				<div class="field" data-show="$histMode === 'day'" style={ hiddenUnless(h.Filter.Mode, tracking.ModeDay) }>
+					<label for="hist-day">Day</label>
+					<input id="hist-day" class="input" type="date" data-bind="histDay" data-on:change={ refreshHistory } data-indicator="_histLoading"/>
+				</div>
+				<div class="field" data-show="$histMode === 'month'" style={ hiddenUnless(h.Filter.Mode, tracking.ModeMonth) }>
+					<label for="hist-month">Month</label>
+					<input id="hist-month" class="input" type="month" placeholder="2026-09" data-bind="histMonth" data-on:change={ refreshHistory } data-indicator="_histLoading"/>
+				</div>
+				<div class="field" data-show="$histMode === 'year'" style={ hiddenUnless(h.Filter.Mode, tracking.ModeYear) }>
+					<label for="hist-year">Year</label>
+					<input id="hist-year" class="input" type="text" inputmode="numeric" maxlength="4" placeholder="2026" data-bind="histYear" data-on:change={ refreshHistory } data-indicator="_histLoading"/>
+				</div>
+				<div class="field" data-show="$histMode === 'range'" style={ hiddenUnless(h.Filter.Mode, tracking.ModeRange) }>
+					<label for="hist-from">From</label>
+					<input id="hist-from" class="input" type="date" data-bind="histFrom" data-on:change={ refreshHistory } data-indicator="_histLoading"/>
+				</div>
+				<div class="field" data-show="$histMode === 'range'" style={ hiddenUnless(h.Filter.Mode, tracking.ModeRange) }>
+					<label for="hist-to">To</label>
+					<input id="hist-to" class="input" type="date" data-bind="histTo" data-on:change={ refreshHistory } data-indicator="_histLoading"/>
+				</div>
+				<div class="field">
+					<label for="hist-company">Company</label>
+					<select id="hist-company" class="input" data-bind="histCompany" data-on:change={ refreshHistory } data-indicator="_histLoading">
+						<option value="">All companies</option>
+						for _, c := range h.Companies {
+							<option value={ strconv.FormatInt(c.ID, 10) }>{ c.Name }</option>
+						}
+					</select>
+				</div>
+			</div>
+		</section>
+		<div class="results-wrap" data-class:loading="$_histLoading">
+			@HistoryResultsFragment(h.Results)
+		</div>
+	}
+}
+
+templ modeButton(mode tracking.Mode, label string, current tracking.Mode) {
+	<button
+		type="button"
+		aria-pressed={ pressed(mode == current) }
+		data-attr:aria-pressed={ "$histMode === '" + string(mode) + "' ? 'true' : 'false'" }
+		data-on:click={ "$histMode = '" + string(mode) + "'; " + refreshHistory }
+		data-indicator="_histLoading"
+	>{ label }</button>
+}
+
+templ presetButton(name, label string) {
+	<button
+		type="button"
+		class="btn btn-quiet"
+		data-on:click={ "@get('/history/results?preset=" + name + "')" }
+		data-indicator="_histLoading"
+	>{ label }</button>
+}
+
+// HistoryResultsFragment is everything below the filter bar, patched in place
+// whenever the filter changes.
+templ HistoryResultsFragment(r HistoryResults) {
+	<div id="history-results">
+		if r.Error != "" {
+			<p class="flash flash-error" role="alert">{ r.Error }</p>
+		} else {
+			<div class="summary">
+				<div class="stat">
+					<p class="stat-label">Period</p>
+					<p class="stat-value period-label">{ r.Label }</p>
+				</div>
+				<div class="stat">
+					<p class="stat-label">Time tracked</p>
+					<p class="stat-value mono">{ HoursMinutes(r.Total) }</p>
+					<p class="stat-label">{ DecimalHours(r.Total) } hours</p>
+				</div>
+				<div class="stat">
+					<p class="stat-label">Entries</p>
+					<p class="stat-value">{ strconv.Itoa(r.Entries) }</p>
+				</div>
+			</div>
+			if r.Entries == 0 {
+				<div class="empty">
+					<p class="empty-title">{ "No time recorded for " + r.Label }</p>
+					<p>Pick another period, or <a href="/">start a timer</a>.</p>
+				</div>
+			} else {
+				<div class="history-grid">
+					<section class="panel" aria-labelledby="by-company-heading">
+						<div class="panel-head">
+							<h2 id="by-company-heading">By company</h2>
+						</div>
+						<ul class="totals" role="list">
+							for _, c := range r.Companies {
+								<li class="total">
+									<span class="total-name">{ c.Name }</span>
+									<span class="total-time mono">{ HoursMinutes(c.Duration) }</span>
+									<span class="bar" aria-hidden="true"><span style={ barStyle(c.BarWidth) }></span></span>
+									<span class="total-meta">{ shareLabel(c, r.Total) }</span>
+								</li>
+							}
+						</ul>
+					</section>
+					<section class="panel" aria-labelledby="entries-heading">
+						<div class="panel-head">
+							<h2 id="entries-heading">Entries</h2>
+						</div>
+						for _, d := range r.Days {
+							<div class="day">
+								<div class="day-head">
+									<h3>{ d.Label }</h3>
+									<span class="mono muted">{ HoursMinutes(d.Total) }</span>
+								</div>
+								<ul class="entry-list" role="list">
+									for _, e := range d.Entries {
+										<li class="entry">
+											<span class="entry-range mono">{ e.Range }</span>
+											<span class="entry-what">
+												<span class="entry-company">{ e.Company }</span>
+												if e.Task != "" {
+													<span class="muted">{ " — " + e.Task }</span>
+												}
+												if e.Running {
+													<span class="badge">running</span>
+												}
+											</span>
+											<span class="entry-duration mono">{ HoursMinutes(e.Duration) }</span>
+										</li>
+									}
+								</ul>
+							</div>
+						}
+						if r.Truncated() {
+							<p class="note">{ "Showing the latest " + strconv.Itoa(r.Shown) + " of " + strconv.Itoa(r.Entries) + " entries. The totals include all of them." }</p>
+						}
+					</section>
+				</div>
+			}
+		}
+	</div>
+}
+
+// pressed renders a boolean as the string aria-pressed needs.
+func pressed(b bool) string {
+	if b {
+		return "true"
+	}
+	return "false"
+}
+
+// hiddenUnless hides a filter field whose mode is not the current one, so the
+// first paint matches what data-show will decide once datastar starts.
+func hiddenUnless(mode, want tracking.Mode) string {
+	if mode == want {
+		return ""
+	}
+	return "display:none"
+}

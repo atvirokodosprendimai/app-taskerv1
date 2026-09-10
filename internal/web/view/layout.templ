@@ -1,0 +1,70 @@
+package view
+
+// Shell is the chrome every signed-in screen renders inside.
+//
+// Navigation is real links rather than datastar actions: that buys bookmarks,
+// middle-click, the back button and aria-current for nothing, and leaves live
+// updates as the stream's job rather than the router's.
+templ Shell(p Page) {
+	<!DOCTYPE html>
+	<html lang="en">
+		<head>
+			@head(p.Title)
+		</head>
+		<body>
+			<a class="skip" href="#main">Skip to content</a>
+			<header class="topbar">
+				<a class="brand" href="/" aria-label="Tasker — timers">
+					<img src="/assets/favicon.svg" alt="" width="28" height="28"/>
+					<span class="brand-name" aria-hidden="true">Tasker</span>
+				</a>
+				<nav class="nav" aria-label="Main">
+					@navLink("/", "timers", p.Nav, "Timers")
+					@navLink("/history", "history", p.Nav, "History")
+				</nav>
+				<div class="account">
+					<span class="who">{ p.User.Email }</span>
+					<button type="button" class="btn btn-quiet" data-on:click="@post('/logout')">Sign out</button>
+				</div>
+			</header>
+			<main id="main" class="content">
+				{ children... }
+			</main>
+		</body>
+	</html>
+}
+
+templ head(title string) {
+	<meta charset="utf-8"/>
+	<meta name="viewport" content="width=device-width, initial-scale=1"/>
+	<meta name="color-scheme" content="light dark"/>
+	<title>{ title } · Tasker</title>
+	<link rel="icon" href="/assets/favicon.svg" type="image/svg+xml"/>
+	<link rel="stylesheet" href="/assets/app.css"/>
+	<script type="module" src={ DatastarBundle } integrity={ DatastarIntegrity } crossorigin="anonymous"></script>
+}
+
+// navLink renders one top-bar link. aria-current carries "which page am I on"
+// and the stylesheet keys off it, so the highlight and what a screen reader
+// announces cannot disagree.
+templ navLink(href, key, current, label string) {
+	if key == current {
+		<a href={ templ.SafeURL(href) } aria-current="page">{ label }</a>
+	} else {
+		<a href={ templ.SafeURL(href) }>{ label }</a>
+	}
+}
+
+// Flash is the page's message slot. It is ALWAYS rendered, empty or not: a
+// datastar patch replaces an element already in the document, so a slot that
+// appeared only when it had something to say could never be patched into.
+//
+// Errors arrive here as a 200 carrying this fragment, never as a 4xx, which
+// would leave the page unchanged and the person with no idea why.
+templ Flash(msg string) {
+	<div id="flash" class="flash-slot">
+		if msg != "" {
+			<p class="flash flash-error" role="alert">{ msg }</p>
+		}
+	</div>
+}
