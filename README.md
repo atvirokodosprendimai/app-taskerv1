@@ -36,6 +36,10 @@ month, year or any period.
 |---|---|
 | ![The Log time dialog explaining that one entry can be at most 24 hours](docs/screenshots/desktop-log-time.png) | ![This year's history for one company, with a running timer and a manual entry](docs/screenshots/desktop-history.png) |
 
+| Put an entry right | Undo a delete |
+|---|---|
+| ![The Edit entry dialog for a running timer: its task name, Delete entry, Cancel and Save](docs/screenshots/desktop-edit-entry.png) | ![The timers screen after a delete, naming the deleted entry beside an Undo button](docs/screenshots/desktop-deleted.png) |
+
 | On a phone | Logging time on a phone | History on a phone |
 |---|---|---|
 | ![The timers screen at 390 px wide](docs/screenshots/phone-dashboard.png) | ![The Log time dialog as a sheet along the bottom edge](docs/screenshots/phone-log-time.png) | ![The history screen at 390 px wide](docs/screenshots/phone-history.png) |
